@@ -114,11 +114,15 @@ describe('Sales SDK Tests', () => {
       limit: 20,
     });
 
-    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_top_customers', {
+    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_top_customers_v2', {
       p_start_date: '2026-07-01',
       p_end_date: '2026-07-31',
       p_company_name: null,
       p_salesperson: null,
+      p_governorate_code: null,
+      p_area_code: null,
+      p_customer_id: null,
+      p_product_id: null,
       p_limit: 20,
     });
   });

@@ -847,6 +847,172 @@ export interface CustomerActionCenterParams {
   offset?: number | null;
 }
 
+export interface CustomerOrdersV2Params {
+  customerId: number;
+  startDate: string;
+  endDate: string;
+  companyName?: string | null;
+  salesperson?: string | null;
+  governorateCode?: string | null;
+  areaCode?: string | null;
+  productId?: number | null;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface CustomerOrdersV2Result {
+  orderId: number;
+  orderName: string;
+  orderDate: string;
+  companyName: string;
+  salesperson: string;
+  governorateName: string;
+  areaName: string;
+  orderValue: number;
+  linesCount: number;
+  productsCount: number;
+  totalQty: number;
+  orderStatus: string;
+}
+
+export interface CustomerProductDropoffV2Params {
+  customerId: number;
+  startDate: string;
+  endDate: string;
+  companyName?: string | null;
+  salesperson?: string | null;
+  governorateCode?: string | null;
+  areaCode?: string | null;
+  productId?: number | null;
+  limit?: number | null;
+}
+
+export interface CustomerProductDropoffV2Result {
+  productId: number;
+  productName: string;
+  categoryName: string;
+  previousSales: number;
+  currentSales: number;
+  previousQty: number;
+  currentQty: number;
+  salesChangePct: number | null;
+  status: 'STOPPED_BUYING' | 'DECLINING' | 'GROWING' | 'NEW_PRODUCT' | 'STABLE' | string;
+  recoveryValue: number;
+}
+
+export interface CustomerFavoriteProductsV2Params {
+  customerId: number;
+  startDate: string;
+  endDate: string;
+  companyName?: string | null;
+  salesperson?: string | null;
+  governorateCode?: string | null;
+  areaCode?: string | null;
+  limit?: number | null;
+}
+
+export interface CustomerFavoriteProductsV2Result {
+  productId: number;
+  productName: string;
+  salesValue: number;
+  ordersCount: number;
+  quantity: number;
+  salesSharePct: number | null;
+  lastOrderDate: string | null;
+}
+
+export interface ProductTopCustomersV2Params {
+  productId: number;
+  startDate: string;
+  endDate: string;
+  companyName?: string | null;
+  salesperson?: string | null;
+  governorateCode?: string | null;
+  areaCode?: string | null;
+  customerId?: number | null;
+  limit?: number | null;
+}
+
+export interface ProductTopCustomersV2Result {
+  customerId: number;
+  customerName: string;
+  companyName: string;
+  salesperson: string;
+  governorateName: string;
+  areaName: string;
+  ordersCount: number;
+  salesValue: number;
+  quantity: number;
+  lastOrderDate: string | null;
+}
+
+export interface CustomerRetentionDetailsV2Params {
+  month: string;
+  companyName?: string | null;
+  salesperson?: string | null;
+  governorateCode?: string | null;
+  areaCode?: string | null;
+  customerId?: number | null;
+  productId?: number | null;
+  status?: string | null;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface CustomerRetentionDetailsV2Result {
+  companyName: string;
+  customerId: number;
+  customerName: string;
+  previousSalesperson: string | null;
+  currentSalesperson: string | null;
+  previousOrders: number;
+  currentOrders: number;
+  previousSales: number;
+  currentSales: number;
+  retentionStatus: 'RETAINED' | 'TRANSFERRED' | 'LOST' | 'REACTIVATED' | 'NEW_IN_WINDOW' | string;
+  salesChangePct: number | null;
+  previousLastOrderDate: string | null;
+  currentLastOrderDate: string | null;
+}
+
+export interface CustomerActionCenterScopedV2Params {
+  asOfDate?: string | null;
+  companyName?: string | null;
+  salesperson?: string | null;
+  governorateCode?: string | null;
+  areaCode?: string | null;
+  customerId?: number | null;
+  productId?: number | null;
+  priority?: string | null;
+  actionType?: string | null;
+  risk?: string | null;
+  search?: string | null;
+  limit?: number | null;
+  offset?: number | null;
+}
+
+export interface CustomerActionCenterScopedV2Result {
+  customerId: number;
+  customerName: string;
+  companyName: string;
+  currentSalesperson: string;
+  salesperson: string;
+  priority: string;
+  actionType: string;
+  actionReason: string;
+  lastOrderDate: string | null;
+  daysSinceLastOrder: number;
+  medianDaysBetweenOrders: number;
+  medianBuyingInterval: number;
+  previous30dSales: number;
+  recent30dSales: number;
+  salesChangePct: number | null;
+  recoveryOpportunity: number;
+  riskLevel: string;
+  risk: string;
+  salespersonChanged: boolean;
+}
+
 export interface CustomerActionCenterResult {
   customerId: number;
   customerName: string;
@@ -865,6 +1031,7 @@ export interface CustomerActionCenterResult {
   risk: string;
   salespersonChanged: boolean;
 }
+
 
 export interface CustomerRecoveryOpportunitiesParams {
   asOfDate?: string | null;

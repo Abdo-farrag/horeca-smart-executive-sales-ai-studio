@@ -47,10 +47,14 @@ describe('Sales Reps SDK Tests', () => {
       salesperson: 'Mona Mohamed',
     });
 
-    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_sales_rep_summary', {
+    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_sales_rep_summary_v2', {
       p_month: '2026-07-01',
       p_company_name: 'Horeca Smart',
       p_salesperson: 'Mona Mohamed',
+      p_governorate_code: null,
+      p_area_code: null,
+      p_customer_id: null,
+      p_product_id: null,
     });
 
     expect(res).toHaveLength(1);
@@ -283,11 +287,12 @@ describe('Sales Reps SDK Tests', () => {
       offset: 0
     });
 
-    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_sales_rep_daily_actions', {
+    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_sales_rep_daily_actions_v2', {
       p_as_of_date: '2026-08-10',
       p_salesperson: 'Haddil Haron',
       p_company_name: 'MAS',
       p_priority: 'HIGH',
+      p_risk: null,
       p_action_type: 'WIN_BACK',
       p_search: 'أسينا',
       p_limit: 20,

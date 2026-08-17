@@ -31,6 +31,16 @@ import {
   CustomerActionCenterResult,
   CustomerRecoveryOpportunitiesParams,
   CustomerRecoveryOpportunitiesResult,
+  CustomerOrdersV2Params,
+  CustomerOrdersV2Result,
+  CustomerProductDropoffV2Params,
+  CustomerProductDropoffV2Result,
+  CustomerFavoriteProductsV2Params,
+  CustomerFavoriteProductsV2Result,
+  CustomerRetentionDetailsV2Params,
+  CustomerRetentionDetailsV2Result,
+  CustomerActionCenterScopedV2Params,
+  CustomerActionCenterScopedV2Result,
 } from './types';
 
 export interface CustomerRetentionParams {
@@ -48,38 +58,70 @@ export const customers = {
     if (params.startDate) assertIsoDate(params.startDate, 'startDate');
     if (params.endDate) assertIsoDate(params.endDate, 'endDate');
 
-    return callAnalyticsRpc(
-      'analytics_customer_summary_v2',
-      {
-        p_start_date: params.startDate ?? null,
-        p_end_date: params.endDate ?? null,
-        p_company_name: params.companyName ?? null,
-        p_salesperson: params.salesperson ?? null,
-        p_governorate_code: params.governorateCode ?? null,
-        p_area_code: params.areaCode ?? null,
-        p_customer_id: params.customerId ?? null,
-        p_product_id: params.productId ?? null,
-        p_status: params.status ?? null,
-        p_search: params.search ?? null,
-        p_limit: params.limit ?? null,
-        p_offset: params.offset ?? null,
-      },
-      (row) => ({
-        customerId: toFiniteNumber(row.customer_id, 'customer_id'),
-        customerName: String(row.customer_name ?? ''),
-        companyName: String(row.company_name ?? ''),
-        primarySalesperson: String(row.primary_salesperson ?? ''),
-        ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
-        salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
-        averageOrderValue: toFiniteNumber(row.average_order_value ?? 0, 'average_order_value'),
-        firstOrderDate: row.first_order_date ? String(row.first_order_date) : null,
-        lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
-        daysSinceLastOrder: toFiniteNumber(row.days_since_last_order ?? 0, 'days_since_last_order'),
-        customerStatus: String(row.customer_status ?? 'ACTIVE'),
-        previousPeriodSales: toFiniteNumber(row.previous_period_sales ?? 0, 'previous_period_sales'),
-        salesChangePct: row.sales_change_pct != null ? toFiniteNumber(row.sales_change_pct, 'sales_change_pct') : null,
-      })
-    );
+    try {
+      return await callAnalyticsRpc(
+        'analytics_customer_summary_v2',
+        {
+          p_start_date: params.startDate ?? null,
+          p_end_date: params.endDate ?? null,
+          p_company_name: params.companyName ?? null,
+          p_salesperson: params.salesperson ?? null,
+          p_governorate_code: params.governorateCode ?? null,
+          p_area_code: params.areaCode ?? null,
+          p_customer_id: params.customerId ?? null,
+          p_product_id: params.productId ?? null,
+          p_status: params.status ?? null,
+          p_search: params.search ?? null,
+          p_limit: params.limit ?? null,
+          p_offset: params.offset ?? null,
+        },
+        (row) => ({
+          customerId: toFiniteNumber(row.customer_id, 'customer_id'),
+          customerName: String(row.customer_name ?? ''),
+          companyName: String(row.company_name ?? ''),
+          primarySalesperson: String(row.primary_salesperson ?? ''),
+          ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
+          salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
+          averageOrderValue: toFiniteNumber(row.average_order_value ?? 0, 'average_order_value'),
+          firstOrderDate: row.first_order_date ? String(row.first_order_date) : null,
+          lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
+          daysSinceLastOrder: toFiniteNumber(row.days_since_last_order ?? 0, 'days_since_last_order'),
+          customerStatus: String(row.customer_status ?? 'ACTIVE'),
+          previousPeriodSales: toFiniteNumber(row.previous_period_sales ?? 0, 'previous_period_sales'),
+          salesChangePct: row.sales_change_pct != null ? toFiniteNumber(row.sales_change_pct, 'sales_change_pct') : null,
+        })
+      );
+    } catch (_v2Error: any) {
+      try {
+        return await callAnalyticsRpc(
+          'analytics_top_customers',
+          {
+            p_start_date: params.startDate ?? null,
+            p_end_date: params.endDate ?? null,
+            p_company_name: params.companyName ?? null,
+            p_salesperson: params.salesperson ?? null,
+            p_limit: params.limit ?? 200,
+          },
+          (row) => ({
+            customerId: toFiniteNumber(row.customer_id, 'customer_id'),
+            customerName: String(row.customer_name ?? ''),
+            companyName: String(row.company_name ?? ''),
+            primarySalesperson: String(row.primary_salesperson ?? ''),
+            ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
+            salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
+            averageOrderValue: toFiniteNumber(row.average_order_value ?? 0, 'average_order_value'),
+            firstOrderDate: null,
+            lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
+            daysSinceLastOrder: 0,
+            customerStatus: 'ACTIVE',
+            previousPeriodSales: 0,
+            salesChangePct: null,
+          })
+        );
+      } catch {
+        throw _v2Error;
+      }
+    }
   },
 
   async get360(params: Customer360Params): Promise<Customer360Result[]> {
@@ -370,13 +412,13 @@ export const customers = {
 
     const mapper = (row: any) => ({
       previousActiveCustomers: toFiniteNumber(row.previous_active_customers ?? 0, 'previous_active_customers'),
-      retainedWithSameRep: toFiniteNumber(row.retained_with_same_rep ?? 0, 'retained_with_same_rep'),
+      retainedWithSameRep: toFiniteNumber(row.retained_same_rep ?? row.retained_with_same_rep ?? 0, 'retained_same_rep'),
       transferredCustomers: toFiniteNumber(row.transferred_customers ?? 0, 'transferred_customers'),
       trueLostCustomers: toFiniteNumber(row.true_lost_customers ?? 0, 'true_lost_customers'),
       newCustomers: toFiniteNumber(row.new_customers ?? 0, 'new_customers'),
       companyRetentionRate: toFiniteNumber(row.company_retention_rate ?? 0, 'company_retention_rate'),
       sameRepRetentionRate: toFiniteNumber(row.same_rep_retention_rate ?? 0, 'same_rep_retention_rate'),
-      lostCustomerRevenueEgp: toFiniteNumber(row.lost_customer_revenue_egp ?? 0, 'lost_customer_revenue_egp'),
+      lostCustomerRevenueEgp: toFiniteNumber(row.lost_previous_sales ?? row.lost_customer_revenue_egp ?? 0, 'lost_previous_sales'),
     });
 
     try {
@@ -522,6 +564,195 @@ export const customers = {
       }
       return rows;
     }
+  },
+
+  async customerOrdersV2(params: CustomerOrdersV2Params): Promise<CustomerOrdersV2Result[]> {
+    if (!params.customerId) throw new Error('customerId is required for customerOrdersV2');
+    assertIsoDate(params.startDate, 'startDate');
+    assertIsoDate(params.endDate, 'endDate');
+
+    const limit = params.limit != null ? Math.min(Math.max(params.limit, 1), 20) : 10;
+    const offset = params.offset != null ? Math.max(params.offset, 0) : 0;
+
+    return callAnalyticsRpc(
+      'analytics_customer_orders_v2',
+      {
+        p_customer_id: params.customerId,
+        p_start_date: params.startDate,
+        p_end_date: params.endDate,
+        p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
+        p_governorate_code: params.governorateCode ?? null,
+        p_area_code: params.areaCode ?? null,
+        p_product_id: params.productId ?? null,
+        p_limit: limit,
+        p_offset: offset,
+      },
+      (row) => ({
+        orderId: toFiniteNumber(row.order_id, 'order_id'),
+        orderName: String(row.order_name ?? ''),
+        orderDate: String(row.order_date ?? ''),
+        companyName: String(row.company_name ?? ''),
+        salesperson: String(row.salesperson ?? ''),
+        governorateName: String(row.governorate_name ?? ''),
+        areaName: String(row.area_name ?? ''),
+        orderValue: toFiniteNumber(row.order_value ?? 0, 'order_value'),
+        linesCount: toFiniteNumber(row.lines_count ?? 0, 'lines_count'),
+        productsCount: toFiniteNumber(row.products_count ?? 0, 'products_count'),
+        totalQty: toFiniteNumber(row.total_qty ?? 0, 'total_qty'),
+        orderStatus: String(row.order_status ?? 'CONFIRMED'),
+      })
+    );
+  },
+
+  async customerProductDropoffV2(params: CustomerProductDropoffV2Params): Promise<CustomerProductDropoffV2Result[]> {
+    if (!params.customerId) throw new Error('customerId is required for customerProductDropoffV2');
+    assertIsoDate(params.startDate, 'startDate');
+    assertIsoDate(params.endDate, 'endDate');
+
+    const limit = params.limit != null ? Math.min(Math.max(params.limit, 1), 20) : 20;
+
+    return callAnalyticsRpc(
+      'analytics_customer_product_dropoff_v2',
+      {
+        p_customer_id: params.customerId,
+        p_start_date: params.startDate,
+        p_end_date: params.endDate,
+        p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
+        p_governorate_code: params.governorateCode ?? null,
+        p_area_code: params.areaCode ?? null,
+        p_product_id: params.productId ?? null,
+        p_limit: limit,
+      },
+      (row) => ({
+        productId: toFiniteNumber(row.product_id, 'product_id'),
+        productName: String(row.product_name ?? ''),
+        categoryName: String(row.category_name ?? ''),
+        previousSales: toFiniteNumber(row.previous_sales ?? 0, 'previous_sales'),
+        currentSales: toFiniteNumber(row.current_sales ?? 0, 'current_sales'),
+        previousQty: toFiniteNumber(row.previous_qty ?? 0, 'previous_qty'),
+        currentQty: toFiniteNumber(row.current_qty ?? 0, 'current_qty'),
+        salesChangePct: row.sales_change_pct != null ? toFiniteNumber(row.sales_change_pct, 'sales_change_pct') : null,
+        status: String(row.status ?? 'STABLE'),
+        recoveryValue: toFiniteNumber(row.recovery_value ?? 0, 'recovery_value'),
+      })
+    );
+  },
+
+  async customerFavoriteProductsV2(params: CustomerFavoriteProductsV2Params): Promise<CustomerFavoriteProductsV2Result[]> {
+    if (!params.customerId) throw new Error('customerId is required for customerFavoriteProductsV2');
+    assertIsoDate(params.startDate, 'startDate');
+    assertIsoDate(params.endDate, 'endDate');
+
+    const limit = params.limit != null ? Math.min(Math.max(params.limit, 1), 20) : 20;
+
+    return callAnalyticsRpc(
+      'analytics_customer_favorite_products_v2',
+      {
+        p_customer_id: params.customerId,
+        p_start_date: params.startDate,
+        p_end_date: params.endDate,
+        p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
+        p_governorate_code: params.governorateCode ?? null,
+        p_area_code: params.areaCode ?? null,
+        p_limit: limit,
+      },
+      (row) => ({
+        productId: toFiniteNumber(row.product_id, 'product_id'),
+        productName: String(row.product_name ?? ''),
+        salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
+        ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
+        quantity: toFiniteNumber(row.quantity ?? 0, 'quantity'),
+        salesSharePct: row.sales_share_pct != null ? toFiniteNumber(row.sales_share_pct, 'sales_share_pct') : null,
+        lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
+      })
+    );
+  },
+
+  async customerRetentionDetailsV2(params: CustomerRetentionDetailsV2Params): Promise<CustomerRetentionDetailsV2Result[]> {
+    const month = normalizeMonthStart(params.month, 'month');
+    const limit = params.limit != null ? Math.min(Math.max(params.limit, 1), 20) : 20;
+    const offset = params.offset != null ? Math.max(params.offset, 0) : 0;
+
+    return callAnalyticsRpc(
+      'analytics_customer_retention_details_v2',
+      {
+        p_month: month,
+        p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
+        p_governorate_code: params.governorateCode ?? null,
+        p_area_code: params.areaCode ?? null,
+        p_customer_id: params.customerId ?? null,
+        p_product_id: params.productId ?? null,
+        p_status: params.status ?? null,
+        p_limit: limit,
+        p_offset: offset,
+      },
+      (row) => ({
+        companyName: String(row.company_name ?? ''),
+        customerId: toFiniteNumber(row.customer_id, 'customer_id'),
+        customerName: String(row.customer_name ?? ''),
+        previousSalesperson: row.previous_salesperson ? String(row.previous_salesperson) : null,
+        currentSalesperson: row.current_salesperson ? String(row.current_salesperson) : null,
+        previousOrders: toFiniteNumber(row.previous_orders ?? 0, 'previous_orders'),
+        currentOrders: toFiniteNumber(row.current_orders ?? 0, 'current_orders'),
+        previousSales: toFiniteNumber(row.previous_sales ?? 0, 'previous_sales'),
+        currentSales: toFiniteNumber(row.current_sales ?? 0, 'current_sales'),
+        retentionStatus: String(row.retention_status ?? 'RETAINED'),
+        salesChangePct: row.sales_change_pct != null ? toFiniteNumber(row.sales_change_pct, 'sales_change_pct') : null,
+        previousLastOrderDate: row.previous_last_order_date ? String(row.previous_last_order_date) : null,
+        currentLastOrderDate: row.current_last_order_date ? String(row.current_last_order_date) : null,
+      })
+    );
+  },
+
+  async customerActionCenterScopedV2(params: CustomerActionCenterScopedV2Params = {}): Promise<CustomerActionCenterScopedV2Result[]> {
+    if (params.asOfDate) assertIsoDate(params.asOfDate, 'asOfDate');
+
+    const limit = params.limit != null ? Math.min(Math.max(params.limit, 1), 20) : 20;
+    const offset = params.offset != null ? Math.max(params.offset, 0) : 0;
+
+    return callAnalyticsRpc(
+      'analytics_customer_action_center_scoped_v2',
+      {
+        p_as_of_date: params.asOfDate ?? null,
+        p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
+        p_governorate_code: params.governorateCode ?? null,
+        p_area_code: params.areaCode ?? null,
+        p_customer_id: params.customerId ?? null,
+        p_product_id: params.productId ?? null,
+        p_priority: params.priority ?? null,
+        p_action_type: params.actionType ?? null,
+        p_risk: params.risk ?? null,
+        p_search: params.search ?? null,
+        p_limit: limit,
+        p_offset: offset,
+      },
+      (row) => ({
+        customerId: toFiniteNumber(row.customer_id, 'customer_id'),
+        customerName: String(row.customer_name ?? ''),
+        companyName: String(row.company_name ?? ''),
+        currentSalesperson: String(row.current_salesperson ?? row.salesperson ?? ''),
+        salesperson: String(row.current_salesperson ?? row.salesperson ?? ''),
+        priority: String(row.priority ?? 'LOW'),
+        actionType: String(row.action_type ?? 'MONITOR'),
+        actionReason: String(row.action_reason ?? ''),
+        lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
+        daysSinceLastOrder: toFiniteNumber(row.days_since_last_order ?? 0, 'days_since_last_order'),
+        medianDaysBetweenOrders: toFiniteNumber(row.median_days_between_orders ?? row.median_buying_interval ?? 0, 'median_days_between_orders'),
+        medianBuyingInterval: toFiniteNumber(row.median_days_between_orders ?? row.median_buying_interval ?? 0, 'median_buying_interval'),
+        previous30dSales: toFiniteNumber(row.previous_30d_sales ?? 0, 'previous_30d_sales'),
+        recent30dSales: toFiniteNumber(row.recent_30d_sales ?? 0, 'recent_30d_sales'),
+        salesChangePct: row.sales_change_pct != null ? toFiniteNumber(row.sales_change_pct, 'sales_change_pct') : null,
+        recoveryOpportunity: toFiniteNumber(row.recovery_opportunity ?? 0, 'recovery_opportunity'),
+        riskLevel: String(row.risk_level ?? row.risk ?? 'LOW'),
+        risk: String(row.risk_level ?? row.risk ?? 'LOW'),
+        salespersonChanged: Boolean(row.salesperson_changed ?? false),
+      })
+    );
   },
 
   async recoveryOpportunities(params: CustomerRecoveryOpportunitiesParams = {}): Promise<CustomerRecoveryOpportunitiesResult[]> {

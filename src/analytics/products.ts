@@ -30,6 +30,8 @@ import {
   ProductCustomerRetentionResult,
   ProductCustomerRetentionSummaryParams,
   ProductCustomerRetentionSummaryResult,
+  ProductTopCustomersV2Params,
+  ProductTopCustomersV2Result,
 } from './types';
 
 export const products = {
@@ -392,6 +394,41 @@ export const products = {
         stoppedSalesOpportunity: toFiniteNumber(row.stopped_sales_opportunity ?? row.stopped_opportunity_value ?? row.stopped_opportunity ?? 0, 'stopped_sales_opportunity'),
         decliningSalesGap: toFiniteNumber(row.declining_sales_gap ?? row.declining_gap_value ?? row.declining_gap ?? 0, 'declining_sales_gap'),
         retentionRate: toFiniteNumber(row.retention_rate ?? row.retention_rate_pct ?? row.retention_pct ?? 0, 'retention_rate'),
+      })
+    );
+  },
+
+  async productTopCustomersV2(params: ProductTopCustomersV2Params): Promise<ProductTopCustomersV2Result[]> {
+    if (!params.productId) throw new Error('productId is required for productTopCustomersV2');
+    assertIsoDate(params.startDate, 'startDate');
+    assertIsoDate(params.endDate, 'endDate');
+
+    const limit = params.limit != null ? Math.min(Math.max(params.limit, 1), 20) : 20;
+
+    return callAnalyticsRpc(
+      'analytics_product_top_customers_v2',
+      {
+        p_product_id: params.productId,
+        p_start_date: params.startDate,
+        p_end_date: params.endDate,
+        p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
+        p_governorate_code: params.governorateCode ?? null,
+        p_area_code: params.areaCode ?? null,
+        p_customer_id: params.customerId ?? null,
+        p_limit: limit,
+      },
+      (row) => ({
+        customerId: toFiniteNumber(row.customer_id, 'customer_id'),
+        customerName: String(row.customer_name ?? ''),
+        companyName: String(row.company_name ?? ''),
+        salesperson: String(row.salesperson ?? ''),
+        governorateName: String(row.governorate_name ?? ''),
+        areaName: String(row.area_name ?? ''),
+        ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
+        salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
+        quantity: toFiniteNumber(row.quantity ?? 0, 'quantity'),
+        lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
       })
     );
   },

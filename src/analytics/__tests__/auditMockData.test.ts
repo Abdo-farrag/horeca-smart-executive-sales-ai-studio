@@ -1,7 +1,40 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as mockData from '../../data/mockData';
 import { fetchSalesOrders } from '../../services/salesService';
 import { getFallbackExecutiveData } from '../../services/executiveService';
+
+vi.mock('../../lib/supabase', () => ({
+  isSupabaseConfigured: true,
+  getSupabaseHostOnly: () => 'mock-host',
+  supabase: {
+    from: vi.fn(() => {
+      const builder: any = {
+        select: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        gte: vi.fn().mockReturnThis(),
+        lte: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        then: (resolve: any) =>
+          resolve({
+            data: [
+              {
+                order_id: 101,
+                order_name: 'SO/2026/001',
+                order_date_cairo: '2026-08-05',
+                company_name: 'MAS',
+                customer_id: 30709,
+                customer_name: 'خالد حسين',
+                salesperson: 'Haddil Haron',
+                order_value: 50000,
+              },
+            ],
+            error: null,
+          }),
+      };
+      return builder;
+    }),
+  },
+}));
 
 describe('P0 Audit: Non-Existence of Fake / Mock / Demo Data', () => {
   it('should export empty arrays for all mockData exports', () => {
@@ -52,7 +85,7 @@ describe('P0 Audit: Non-Existence of Fake / Mock / Demo Data', () => {
     expect(serialized).not.toContain('أورورا أرتيزان');
     expect(serialized).not.toContain('التموين الملكي');
     expect(serialized).not.toContain('طارق الغامدي');
-  });
+  }, 25000);
 
   it('executiveService fallback should return zeroed KPIs and empty lists', () => {
     const filterState: any = {

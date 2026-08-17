@@ -21,23 +21,40 @@ export function useCustomerDashboard(
   const { status, search, limit, offset } = options;
 
   const load = useCallback(async () => {
+    let isCurrent = true;
     setLoading(true);
     setError(null);
     try {
       const result = await fetchCustomerSummaryList(filters, { status, search, limit, offset });
-      setData(result.data);
-      setError(result.error);
+      if (isCurrent) {
+        setData(result.data);
+        setError(result.error);
+      }
     } catch (err: any) {
       console.error('Error fetching customer summary in hook:', err);
-      setError(err?.message || 'Error loading live customer data');
-      setData([]);
+      if (isCurrent) {
+        setError(err?.message || 'Error loading live customer data');
+        setData([]);
+      }
     } finally {
-      setLoading(false);
+      if (isCurrent) {
+        setLoading(false);
+      }
     }
+
+    return () => {
+      isCurrent = false;
+    };
   }, [filters, status, search, limit, offset]);
 
   useEffect(() => {
-    load();
+    let cleanup: (() => void) | undefined;
+    load().then((c) => {
+      cleanup = c;
+    });
+    return () => {
+      if (cleanup) cleanup();
+    };
   }, [load]);
 
   return {

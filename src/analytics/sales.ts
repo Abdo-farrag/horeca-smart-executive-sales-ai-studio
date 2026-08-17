@@ -135,17 +135,14 @@ export const sales = {
         })
       );
     } catch (_err: any) {
-      const summaryRows = await callAnalyticsRpc(
-        'analytics_customer_summary_v2',
+      return await callAnalyticsRpc(
+        'analytics_top_customers',
         {
           p_start_date: params.startDate,
           p_end_date: params.endDate,
           p_company_name: params.companyName ?? null,
           p_salesperson: params.salesperson ?? null,
-          p_governorate_code: params.governorateCode ?? null,
-          p_area_code: params.areaCode ?? null,
-          p_customer_id: params.customerId ?? null,
-          p_product_id: params.productId ?? null,
+          p_limit: limit,
         },
         (row) => ({
           customerId: (row.customer_id as number | string) ?? '',
@@ -158,10 +155,6 @@ export const sales = {
           primarySalesperson: String(row.primary_salesperson ?? ''),
         })
       );
-
-      return summaryRows
-        .sort((a, b) => b.salesValue - a.salesValue)
-        .slice(0, limit);
     }
   },
 

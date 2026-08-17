@@ -495,11 +495,12 @@ describe('Customers SDK Tests', () => {
 
     const res = await customers.actionCenter({ priority: 'HIGH', limit: 10 });
 
-    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_customer_action_center', {
+    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_customer_action_center_v2', {
       p_as_of_date: null,
       p_company_name: null,
       p_salesperson: null,
       p_priority: 'HIGH',
+      p_risk: null,
       p_action_type: null,
       p_search: null,
       p_limit: 10,
@@ -540,6 +541,54 @@ describe('Customers SDK Tests', () => {
     });
 
     expect(res[0].recoveryValue).toBe(2571865.27);
+  });
+
+  it('Verify parameter mapping and column resolution for analytics_customer_retention_summary_v2', async () => {
+    (supabase!.rpc as any).mockResolvedValueOnce({
+      data: [{
+        current_month: '2026-07-01',
+        previous_active_customers: 85,
+        retained_same_rep: 65,
+        transferred_customers: 2,
+        true_lost_customers: 18,
+        new_customers: 21,
+        company_retention_rate: 78.82,
+        same_rep_retention_rate: 76.47,
+        lost_previous_sales: 2814924.60,
+      }],
+      error: null,
+      count: null,
+      status: 200,
+      statusText: 'OK',
+    } as any);
+
+    const res = await customers.retention({
+      month: '2026-07-01',
+      companyName: 'MAS',
+    });
+
+    expect(supabase!.rpc).toHaveBeenCalledWith('analytics_customer_retention_summary_v2', {
+      p_month: '2026-07-01',
+      p_company_name: 'MAS',
+      p_salesperson: null,
+      p_governorate_code: null,
+      p_area_code: null,
+      p_customer_id: null,
+      p_product_id: null,
+    });
+
+    expect(res).toHaveLength(1);
+    // 1. retained_same_rep = 65 maps to retainedWithSameRep = 65
+    expect(res[0].retainedWithSameRep).toBe(65);
+    // 2. lost_previous_sales = 2814924.60 maps to lostCustomerRevenueEgp = 2814924.60
+    expect(res[0].lostCustomerRevenueEgp).toBe(2814924.60);
+    // 3. valid source values are not overwritten by fallback zero
+    expect(res[0].previousActiveCustomers).toBe(85);
+    expect(res[0].transferredCustomers).toBe(2);
+    expect(res[0].trueLostCustomers).toBe(18);
+    expect(res[0].newCustomers).toBe(21);
+    expect(res[0].companyRetentionRate).toBe(78.82);
+    expect(res[0].sameRepRetentionRate).toBe(76.47);
   });
 });
 
