@@ -416,9 +416,7 @@ $$;
 
 -- ==============================================================================
 -- 5. analytics_customer_retention_details_v2
--- Purpose: Named customer list for retention cohorts (LOST, RETAINED, TRANSFERRED, REACTIVATED, NEW_IN_WINDOW).
--- Rebuilt directly from the exact CTE chain of production analytics_customer_retention_summary_v2:
--- params -> order_base -> scoped_orders -> rep_activity -> ranked -> totals -> activity -> current_and_previous -> lost -> retention_rows -> filtered
+-- Exact row-level companion to analytics_customer_retention_summary_v2.
 -- ==============================================================================
 CREATE OR REPLACE FUNCTION public.analytics_customer_retention_details_v2(
   p_month date,
@@ -447,230 +445,108 @@ RETURNS TABLE(
   previous_last_order_date date,
   current_last_order_date date
 )
-LANGUAGE plpgsql
+LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
-DECLARE
-  v_current_start date;
-  v_current_end date;
-  v_prev_start date;
-  v_prev_end date;
-  v_limit integer;
-  v_offset integer;
-BEGIN
-  IF p_month IS NULL THEN
-    RAISE EXCEPTION 'p_month is required';
-  END IF;
-
-  v_current_start := date_trunc('month', p_month)::date;
-  v_current_end := (date_trunc('month', p_month) + interval '1 month' - interval '1 day')::date;
-  v_prev_start := (date_trunc('month', p_month) - interval '1 month')::date;
-  v_prev_end := (date_trunc('month', p_month) - interval '1 day')::date;
-
-  v_limit := LEAST(GREATEST(COALESCE(p_limit, 20), 1), 20);
-  v_offset := GREATEST(COALESCE(p_offset, 0), 0);
-
-  RETURN QUERY
-  WITH params AS (
-    SELECT
-      v_current_start AS cur_start,
-      v_current_end AS cur_end,
-      v_prev_start AS prv_start,
-      v_prev_end AS prv_end
-  ),
-  order_base AS (
-    SELECT
-      o.order_id,
-      o.order_name,
-      o.order_date_cairo AS order_date,
-      o.company_name,
-      o.customer_id,
-      o.customer_name,
-      o.salesperson,
-      o.governorate_code,
-      o.area_code,
-      CASE
-        WHEN p_product_id IS NOT NULL THEN COALESCE(ps.subtotal, 0)
-        ELSE COALESCE(o.order_value, 0)
-      END AS eff_sales_val
-    FROM public.sales_orders_odoo18_geo o
-    LEFT JOIN public.product_sales_from_june1 ps ON ps.order_id = o.order_id AND ps.product_id = p_product_id
-    WHERE o.order_date_cairo <= (SELECT cur_end FROM params)
-      AND (p_company_name IS NULL OR LOWER(o.company_name) = LOWER(p_company_name))
-      AND (p_governorate_code IS NULL OR o.governorate_code = p_governorate_code)
-      AND (p_area_code IS NULL OR o.area_code = p_area_code)
-      AND (p_customer_id IS NULL OR o.customer_id = p_customer_id)
-      AND (p_product_id IS NULL OR ps.product_id IS NOT NULL)
-  ),
-  scoped_orders AS (
-    SELECT *
-    FROM order_base ob
-    WHERE ob.order_date BETWEEN (SELECT prv_start FROM params) AND (SELECT cur_end FROM params)
-  ),
-  rep_activity AS (
-    SELECT
-      so.company_name,
-      so.customer_id,
-      so.salesperson,
-      CASE
-        WHEN so.order_date BETWEEN (SELECT prv_start FROM params) AND (SELECT prv_end FROM params) THEN 'PREV'
-        ELSE 'CURR'
-      END AS period_type,
-      SUM(so.eff_sales_val) AS rep_sales,
-      MAX(so.order_date) AS rep_last_date
-    FROM scoped_orders so
-    GROUP BY so.company_name, so.customer_id, so.salesperson,
-      CASE
-        WHEN so.order_date BETWEEN (SELECT prv_start FROM params) AND (SELECT prv_end FROM params) THEN 'PREV'
-        ELSE 'CURR'
-      END
-  ),
-  ranked AS (
-    SELECT
-      ra.company_name,
-      ra.customer_id,
-      ra.period_type,
-      ra.salesperson,
-      ROW_NUMBER() OVER (
-        PARTITION BY ra.company_name, ra.customer_id, ra.period_type
-        ORDER BY ra.rep_sales DESC, ra.rep_last_date DESC
-      ) AS rn
-    FROM rep_activity ra
-  ),
-  totals AS (
-    SELECT
-      so.company_name,
-      so.customer_id,
-      MAX(so.customer_name) AS customer_name,
-      CASE
-        WHEN so.order_date BETWEEN (SELECT prv_start FROM params) AND (SELECT prv_end FROM params) THEN 'PREV'
-        ELSE 'CURR'
-      END AS period_type,
-      COUNT(DISTINCT so.order_id) AS orders_count,
-      SUM(so.eff_sales_val) AS total_sales,
-      MAX(so.order_date) AS last_order_date
-    FROM scoped_orders so
-    GROUP BY so.company_name, so.customer_id,
-      CASE
-        WHEN so.order_date BETWEEN (SELECT prv_start FROM params) AND (SELECT prv_end FROM params) THEN 'PREV'
-        ELSE 'CURR'
-      END
-  ),
-  activity AS (
-    SELECT
-      t.company_name,
-      t.customer_id,
-      t.customer_name,
-      t.period_type,
-      r.salesperson AS primary_salesperson,
-      t.orders_count,
-      t.total_sales,
-      t.last_order_date
-    FROM totals t
-    JOIN ranked r ON r.company_name = t.company_name
-                 AND r.customer_id = t.customer_id
-                 AND r.period_type = t.period_type
-                 AND r.rn = 1
-  ),
-  current_and_previous AS (
-    SELECT
-      COALESCE(c.company_name, p.company_name) AS company_name,
-      COALESCE(c.customer_id, p.customer_id) AS customer_id,
-      COALESCE(c.customer_name, p.customer_name) AS customer_name,
-      p.primary_salesperson AS previous_salesperson,
-      c.primary_salesperson AS current_salesperson,
-      COALESCE(p.orders_count, 0) AS previous_orders,
-      COALESCE(c.orders_count, 0) AS current_orders,
-      COALESCE(p.total_sales, 0) AS previous_sales,
-      COALESCE(c.total_sales, 0) AS current_sales,
-      p.last_order_date AS previous_last_order_date,
-      c.last_order_date AS current_last_order_date,
-      (p.customer_id IS NOT NULL) AS is_in_prev,
-      (c.customer_id IS NOT NULL) AS is_in_curr
-    FROM (SELECT * FROM activity WHERE period_type = 'PREV') p
-    FULL OUTER JOIN (SELECT * FROM activity WHERE period_type = 'CURR') c
-      ON p.company_name = c.company_name AND p.customer_id = c.customer_id
-  ),
-  lost AS (
-    SELECT
-      cp.*,
-      EXISTS (
-        SELECT 1
-        FROM order_base ob
-        WHERE ob.company_name = cp.company_name
-          AND ob.customer_id = cp.customer_id
-          AND ob.order_date < (SELECT prv_start FROM params)
-      ) AS has_prior_history
-    FROM current_and_previous cp
-  ),
-  retention_rows AS (
-    SELECT
-      l.company_name::text AS company_name,
-      l.customer_id::bigint AS customer_id,
-      l.customer_name::text AS customer_name,
-      l.previous_salesperson::text AS previous_salesperson,
-      l.current_salesperson::text AS current_salesperson,
-      l.previous_orders::bigint AS previous_orders,
-      l.current_orders::bigint AS current_orders,
-      l.previous_sales::numeric AS previous_sales,
-      l.current_sales::numeric AS current_sales,
-      CASE
-        WHEN l.is_in_prev AND l.is_in_curr AND LOWER(COALESCE(l.previous_salesperson, '')) = LOWER(COALESCE(l.current_salesperson, '')) THEN 'RETAINED'::text
-        WHEN l.is_in_prev AND l.is_in_curr AND LOWER(COALESCE(l.previous_salesperson, '')) <> LOWER(COALESCE(l.current_salesperson, '')) THEN 'TRANSFERRED'::text
-        WHEN l.is_in_prev AND NOT l.is_in_curr THEN 'LOST'::text
-        WHEN NOT l.is_in_prev AND l.is_in_curr AND l.has_prior_history THEN 'REACTIVATED'::text
-        WHEN NOT l.is_in_prev AND l.is_in_curr AND NOT l.has_prior_history THEN 'NEW_IN_WINDOW'::text
-        ELSE 'RETAINED'::text
-      END AS retention_status,
-      CASE
-        WHEN l.previous_sales = 0 THEN NULL::numeric
-        ELSE ((l.current_sales - l.previous_sales) / l.previous_sales * 100)::numeric
-      END AS sales_change_pct,
-      l.previous_last_order_date::date AS previous_last_order_date,
-      l.current_last_order_date::date AS current_last_order_date
-    FROM lost l
-  ),
-  filtered AS (
-    SELECT *
-    FROM retention_rows r
-    WHERE (
-      p_salesperson IS NULL
-      OR LOWER(COALESCE(r.previous_salesperson, '')) = LOWER(p_salesperson)
-      OR LOWER(COALESCE(r.current_salesperson, '')) = LOWER(p_salesperson)
+AS $function$
+with params as (
+  select date_trunc('month',p_month)::date cm,
+         (date_trunc('month',p_month)-interval '1 month')::date pm,
+         (date_trunc('month',p_month)+interval '1 month'-interval '1 day')::date cm_end
+), order_base as (
+  select p.order_id,
+         (max(p.order_date) at time zone 'Africa/Cairo')::date order_date_cairo,
+         max(p.company_id)::bigint company_id,
+         max(p.company_name)::text company_name,
+         max(p.customer_id)::bigint customer_id,
+         max(p.customer_name)::text customer_name,
+         coalesce(nullif(btrim(max(p.salesperson)),''),'Unassigned')::text salesperson,
+         case when p_product_id is null
+              then sum(p.subtotal)
+              else sum(p.subtotal) filter (where p.product_id=p_product_id)
+         end::numeric sales_value,
+         bool_or(p.product_id=p_product_id) has_product
+  from public.product_sales_from_june1 p
+  cross join params x
+  where p.order_date >= '2026-05-31 21:00:00+00'::timestamptz
+    and p.order_date < ((x.cm_end + 1)::timestamp at time zone 'Africa/Cairo')
+    and p.state='sale'
+    and p.company_id = any(array[1::bigint,2::bigint])
+    and (p.order_name like 'HS%' or p.order_name like 'MS%')
+    and (p_company_name is null or p.company_name=p_company_name)
+    and (p_customer_id is null or p.customer_id=p_customer_id)
+    and not exists (
+      select 1 from public.procurement_intercompany_customer_exclusions e
+      where e.is_active=true
+        and e.company_id=p.company_id
+        and e.normalized_customer_name=lower(btrim(p.customer_name))
     )
-    AND (p_status IS NULL OR UPPER(r.retention_status) = UPPER(p_status))
-  )
-  SELECT
-    f.company_name,
-    f.customer_id,
-    f.customer_name,
-    f.previous_salesperson,
-    f.current_salesperson,
-    f.previous_orders,
-    f.current_orders,
-    f.previous_sales,
-    f.current_sales,
-    f.retention_status,
-    f.sales_change_pct,
-    f.previous_last_order_date,
-    f.current_last_order_date
-  FROM filtered f
-  ORDER BY
-    CASE WHEN UPPER(COALESCE(p_status, '')) = 'LOST' OR f.retention_status = 'LOST' THEN f.previous_sales ELSE f.current_sales END DESC,
-    f.customer_id ASC
-  LIMIT v_limit
-  OFFSET v_offset;
-END;
-$$;
-
+  group by p.order_id
+  having p_product_id is null or bool_or(p.product_id=p_product_id)
+), scoped_orders as (
+  select o.*
+  from order_base o
+  left join public.customer_geography_odoo18 g on g.customer_id=o.customer_id
+  where (p_governorate_code is null or g.governorate_code=p_governorate_code)
+    and (p_area_code is null or g.area_code=p_area_code)
+), rep_activity as (
+ select date_trunc('month',order_date_cairo)::date order_month,company_id,max(company_name) company_name,customer_id,max(customer_name) customer_name,
+        salesperson,count(*)::int orders_count,sum(sales_value)::numeric sales_value,max(order_date_cairo)::date last_order_date
+ from scoped_orders
+ group by date_trunc('month',order_date_cairo)::date,company_id,customer_id,salesperson
+), ranked as (
+ select r.*,row_number() over(partition by r.order_month,r.company_id,r.customer_id order by r.sales_value desc,r.orders_count desc,r.salesperson) rep_rank
+ from rep_activity r
+), totals as (
+ select order_month,company_id,max(company_name) company_name,customer_id,max(customer_name) customer_name,
+        sum(orders_count)::bigint orders_count,sum(sales_value)::numeric sales_value,max(last_order_date)::date last_order_date
+ from rep_activity group by order_month,company_id,customer_id
+), activity as (
+ select t.order_month,t.company_id,t.company_name,t.customer_id,t.customer_name,r.salesperson primary_salesperson,
+        t.orders_count,t.sales_value,t.last_order_date
+ from totals t join ranked r on r.order_month=t.order_month and r.company_id=t.company_id and r.customer_id=t.customer_id and r.rep_rank=1
+), current_and_previous as (
+ select x.cm current_month,c.company_id,c.company_name,c.customer_id,c.customer_name,p.primary_salesperson previous_salesperson,
+        c.primary_salesperson current_salesperson,coalesce(p.orders_count,0)::bigint previous_orders,c.orders_count::bigint current_orders,
+        coalesce(p.sales_value,0)::numeric previous_sales,c.sales_value::numeric current_sales,
+        p.last_order_date::date previous_last_order_date,c.last_order_date::date current_last_order_date,
+        case when p.customer_id is not null and p.primary_salesperson is distinct from c.primary_salesperson then 'TRANSFERRED'
+             when p.customer_id is not null then 'RETAINED'
+             when exists(select 1 from activity h where h.company_id=c.company_id and h.customer_id=c.customer_id and h.order_month<x.pm) then 'REACTIVATED'
+             else 'NEW_IN_WINDOW' end retention_status
+ from params x join activity c on c.order_month=x.cm
+ left join activity p on p.order_month=x.pm and p.company_id=c.company_id and p.customer_id=c.customer_id
+), lost as (
+ select x.cm,p.company_id,p.company_name,p.customer_id,p.customer_name,p.primary_salesperson,null::text,
+        p.orders_count::bigint,0::bigint,p.sales_value::numeric,0::numeric,
+        p.last_order_date::date,null::date,'LOST'::text
+ from params x join activity p on p.order_month=x.pm
+ left join activity c on c.order_month=x.cm and c.company_id=p.company_id and c.customer_id=p.customer_id
+ where c.customer_id is null
+), retention_rows as (
+ select * from current_and_previous union all select * from lost
+), filtered as (
+ select * from retention_rows r
+ where (p_salesperson is null or r.previous_salesperson=p_salesperson or r.current_salesperson=p_salesperson)
+   and (p_status is null or upper(r.retention_status)=upper(p_status))
+)
+select f.company_name::text, f.customer_id::bigint, f.customer_name::text,
+       f.previous_salesperson::text, f.current_salesperson::text,
+       f.previous_orders::bigint, f.current_orders::bigint,
+       f.previous_sales::numeric, f.current_sales::numeric, f.retention_status::text,
+       case when f.previous_sales=0 then null::numeric
+            else round(((f.current_sales-f.previous_sales)/f.previous_sales*100)::numeric,2) end as sales_change_pct,
+       f.previous_last_order_date::date, f.current_last_order_date::date
+from filtered f
+order by case when f.retention_status='LOST' then f.previous_sales else f.current_sales end desc, f.customer_id
+limit least(greatest(coalesce(p_limit,20),1),20)
+offset greatest(coalesce(p_offset,0),0);
+$function$;
 
 -- ==============================================================================
 -- 6. analytics_customer_action_center_scoped_v2
--- Purpose: Action center, at-risk accounts, and recovery opportunities respecting full global filters.
--- Rebuilt directly from the exact CTE chain and logic of production analytics_customer_action_center:
--- base_orders -> customer_scope -> order_stats -> order_days -> gaps -> medians -> owner_months -> owners -> classified
+-- Production-equivalent action-center semantics with additional geo/customer/product scope.
 -- ==============================================================================
 CREATE OR REPLACE FUNCTION public.analytics_customer_action_center_scoped_v2(
   p_as_of_date date DEFAULT NULL::date,
@@ -688,220 +564,123 @@ CREATE OR REPLACE FUNCTION public.analytics_customer_action_center_scoped_v2(
   p_offset integer DEFAULT 0
 )
 RETURNS TABLE(
-  customer_id bigint,
-  customer_name text,
-  company_name text,
-  current_salesperson text,
-  last_order_date date,
-  days_since_last_order integer,
-  median_days_between_orders numeric,
-  recent_30d_sales numeric,
-  previous_30d_sales numeric,
-  sales_change_pct numeric,
-  recovery_opportunity numeric,
-  risk_level text,
-  action_type text,
-  priority text,
-  action_reason text,
-  salesperson_changed boolean
+  customer_id bigint, customer_name text, company_name text, current_salesperson text,
+  last_order_date date, days_since_last_order integer, median_days_between_orders numeric,
+  recent_30d_sales numeric, previous_30d_sales numeric, sales_change_pct numeric,
+  recovery_opportunity numeric, risk_level text, action_type text, priority text,
+  action_reason text, salesperson_changed boolean
 )
-LANGUAGE plpgsql
+LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
-AS $$
-DECLARE
-  v_as_of date;
-  v_recent_start date;
-  v_prev_start date;
-  v_prev_end date;
-  v_cur_month_start date;
-  v_prev_month_start date;
-  v_prev_month_end date;
-  v_limit integer;
-  v_offset integer;
-BEGIN
-  v_as_of := COALESCE(p_as_of_date, CURRENT_DATE);
-  v_recent_start := v_as_of - 29;
-  v_prev_start := v_as_of - 59;
-  v_prev_end := v_as_of - 30;
-
-  v_cur_month_start := date_trunc('month', v_as_of)::date;
-  v_prev_month_start := (date_trunc('month', v_as_of) - interval '1 month')::date;
-  v_prev_month_end := (date_trunc('month', v_as_of) - interval '1 day')::date;
-
-  v_limit := LEAST(GREATEST(COALESCE(p_limit, 20), 1), 20);
-  v_offset := GREATEST(COALESCE(p_offset, 0), 0);
-
-  RETURN QUERY
-  WITH base_orders AS (
-    SELECT
-      o.order_id,
-      o.order_date_cairo,
-      o.customer_id,
-      o.customer_name,
-      o.company_name,
-      o.salesperson,
-      CASE
-        WHEN p_product_id IS NOT NULL THEN COALESCE(ps.subtotal, 0)
-        ELSE COALESCE(o.order_value, 0)
-      END AS eff_sales_val
-    FROM public.sales_orders_odoo18_geo o
-    LEFT JOIN public.product_sales_from_june1 ps ON ps.order_id = o.order_id AND ps.product_id = p_product_id
-    WHERE o.order_date_cairo <= v_as_of
-      AND (p_company_name IS NULL OR LOWER(o.company_name) = LOWER(p_company_name))
-      AND (p_governorate_code IS NULL OR o.governorate_code = p_governorate_code)
-      AND (p_area_code IS NULL OR o.area_code = p_area_code)
-      AND (p_customer_id IS NULL OR o.customer_id = p_customer_id)
-      AND (p_product_id IS NULL OR ps.product_id IS NOT NULL)
-  ),
-  customer_scope AS (
-    SELECT
-      b.company_name,
-      b.customer_id,
-      MAX(b.customer_name) AS customer_name,
-      MAX(b.order_date_cairo) AS last_order_date,
-      (v_as_of - MAX(b.order_date_cairo))::integer AS days_since_last_order,
-      SUM(CASE WHEN b.order_date_cairo BETWEEN v_recent_start AND v_as_of THEN b.eff_sales_val ELSE 0 END) AS recent_30d_sales,
-      SUM(CASE WHEN b.order_date_cairo BETWEEN v_prev_start AND v_prev_end THEN b.eff_sales_val ELSE 0 END) AS previous_30d_sales
-    FROM base_orders b
-    GROUP BY b.company_name, b.customer_id
-  ),
-  order_days AS (
-    SELECT DISTINCT
-      b.company_name,
-      b.customer_id,
-      b.order_date_cairo
-    FROM base_orders b
-  ),
-  gaps AS (
-    SELECT
-      od.company_name,
-      od.customer_id,
-      (od.order_date_cairo - LAG(od.order_date_cairo) OVER (PARTITION BY od.company_name, od.customer_id ORDER BY od.order_date_cairo))::integer AS gap_days
-    FROM order_days od
-  ),
-  medians AS (
-    SELECT
-      g.company_name,
-      g.customer_id,
-      ROUND(COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY g.gap_days), 0)::numeric, 2) AS median_days_between_orders
-    FROM gaps g
-    WHERE g.gap_days IS NOT NULL
-    GROUP BY g.company_name, g.customer_id
-  ),
-  owner_months AS (
-    SELECT
-      b.company_name,
-      b.customer_id,
-      MODE() WITHIN GROUP (ORDER BY b.salesperson) FILTER (
-        WHERE b.order_date_cairo BETWEEN v_cur_month_start AND v_as_of
-      ) AS current_month_owner,
-      MODE() WITHIN GROUP (ORDER BY b.salesperson) FILTER (
-        WHERE b.order_date_cairo BETWEEN v_prev_month_start AND v_prev_month_end
-      ) AS prev_month_owner,
-      MODE() WITHIN GROUP (ORDER BY b.salesperson) AS all_time_owner
-    FROM base_orders b
-    GROUP BY b.company_name, b.customer_id
-  ),
-  owners AS (
-    SELECT
-      om.company_name,
-      om.customer_id,
-      COALESCE(om.current_month_owner, om.all_time_owner, '')::text AS current_salesperson,
-      om.prev_month_owner::text AS previous_salesperson
-    FROM owner_months om
-  ),
-  classified AS (
-    SELECT
-      cs.customer_id::bigint AS customer_id,
-      cs.customer_name::text AS customer_name,
-      cs.company_name::text AS company_name,
-      o.current_salesperson::text AS current_salesperson,
-      cs.last_order_date::date AS last_order_date,
-      cs.days_since_last_order::integer AS days_since_last_order,
-      COALESCE(m.median_days_between_orders, 0)::numeric AS median_days_between_orders,
-      cs.recent_30d_sales::numeric AS recent_30d_sales,
-      cs.previous_30d_sales::numeric AS previous_30d_sales,
-      CASE
-        WHEN cs.previous_30d_sales = 0 THEN NULL::numeric
-        ELSE ((cs.recent_30d_sales - cs.previous_30d_sales) / cs.previous_30d_sales * 100)::numeric
-      END AS sales_change_pct,
-      CASE
-        WHEN cs.previous_30d_sales > cs.recent_30d_sales THEN (cs.previous_30d_sales - cs.recent_30d_sales)::numeric
-        ELSE 0::numeric
-      END AS recovery_opportunity,
-      -- Production risk_level: LOST, HIGH, MEDIUM, LOW
-      CASE
-        WHEN cs.days_since_last_order > 120 THEN 'LOST'::text
-        WHEN cs.days_since_last_order > 60 OR (cs.previous_30d_sales > 0 AND cs.recent_30d_sales <= cs.previous_30d_sales * 0.5) THEN 'HIGH'::text
-        WHEN cs.days_since_last_order > 30 OR (cs.previous_30d_sales > 0 AND cs.recent_30d_sales < cs.previous_30d_sales * 0.7) THEN 'MEDIUM'::text
-        ELSE 'LOW'::text
-      END AS risk_level,
-      -- Production action_type order
-      CASE
-        WHEN cs.days_since_last_order > 120 THEN 'REACTIVATE_LOST'::text
-        WHEN cs.days_since_last_order > 30 THEN 'WIN_BACK'::text
-        WHEN cs.previous_30d_sales > 0 AND cs.recent_30d_sales < cs.previous_30d_sales * 0.7 THEN 'RECOVER_DECLINE'::text
-        WHEN COALESCE(m.median_days_between_orders, 0) > 0
-             AND cs.days_since_last_order > GREATEST(7, CEIL(COALESCE(m.median_days_between_orders, 0) * 2))
-          THEN 'OVERDUE_FOLLOWUP'::text
-        WHEN (o.previous_salesperson IS NOT NULL AND o.current_salesperson IS NOT NULL AND LOWER(o.previous_salesperson) <> LOWER(o.current_salesperson)) THEN 'OWNER_TRANSFER_REVIEW'::text
-        ELSE 'MONITOR'::text
-      END AS action_type,
-      -- Production priority: HIGH, MEDIUM, LOW
-      CASE
-        WHEN cs.days_since_last_order > 120 THEN 'HIGH'::text
-        WHEN cs.days_since_last_order > 60 THEN 'HIGH'::text
-        WHEN (CASE WHEN cs.previous_30d_sales > cs.recent_30d_sales THEN (cs.previous_30d_sales - cs.recent_30d_sales) ELSE 0 END) >= 100000 THEN 'HIGH'::text
-        WHEN cs.days_since_last_order > 30 THEN 'MEDIUM'::text
-        WHEN (CASE WHEN cs.previous_30d_sales > cs.recent_30d_sales THEN (cs.previous_30d_sales - cs.recent_30d_sales) ELSE 0 END) >= 25000 THEN 'MEDIUM'::text
-        WHEN COALESCE(m.median_days_between_orders, 0) > 0
-             AND cs.days_since_last_order > GREATEST(7, CEIL(COALESCE(m.median_days_between_orders, 0) * 2))
-          THEN 'MEDIUM'::text
-        ELSE 'LOW'::text
-      END AS priority,
-      -- Production action_reason
-      CASE
-        WHEN cs.days_since_last_order > 120 THEN 'عميل متوقف عن الشراء لأكثر من 120 يوما'::text
-        WHEN cs.days_since_last_order > 30 THEN 'عميل متوقف عن الشراء لأكثر من 30 يوما'::text
-        WHEN cs.previous_30d_sales > 0 AND cs.recent_30d_sales < cs.previous_30d_sales * 0.7 THEN 'انخفاض في المبيعات مقارنة بالفترة السابقة'::text
-        WHEN COALESCE(m.median_days_between_orders, 0) > 0
-             AND cs.days_since_last_order > GREATEST(7, CEIL(COALESCE(m.median_days_between_orders, 0) * 2))
-          THEN 'تأخر في الشراء عن الدورة المعتادة'::text
-        WHEN (o.previous_salesperson IS NOT NULL AND o.current_salesperson IS NOT NULL AND LOWER(o.previous_salesperson) <> LOWER(o.current_salesperson)) THEN 'تغيير في مسؤول المبيعات يتطلب متابعة'::text
-        ELSE 'أداء مستقر - استمرار المتابعة الدورية'::text
-      END AS action_reason,
-      (o.previous_salesperson IS NOT NULL AND o.current_salesperson IS NOT NULL AND LOWER(o.previous_salesperson) <> LOWER(o.current_salesperson)) AS salesperson_changed
-    FROM customer_scope cs
-    LEFT JOIN medians m ON m.company_name = cs.company_name AND m.customer_id = cs.customer_id
-    JOIN owners o ON o.company_name = cs.company_name AND o.customer_id = cs.customer_id
-  )
-  SELECT
-    c.customer_id,
-    c.customer_name,
-    c.company_name,
-    c.current_salesperson,
-    c.last_order_date,
-    c.days_since_last_order,
-    c.median_days_between_orders,
-    c.recent_30d_sales,
-    c.previous_30d_sales,
-    c.sales_change_pct,
-    c.recovery_opportunity,
-    c.risk_level,
-    c.action_type,
-    c.priority,
-    c.action_reason,
-    c.salesperson_changed
-  FROM classified c
-  WHERE (p_salesperson IS NULL OR LOWER(c.current_salesperson) = LOWER(p_salesperson))
-    AND (p_priority IS NULL OR UPPER(c.priority) = UPPER(p_priority))
-    AND (p_action_type IS NULL OR UPPER(c.action_type) = UPPER(p_action_type))
-    AND (p_risk IS NULL OR UPPER(c.risk_level) = UPPER(p_risk))
-    AND (p_search IS NULL OR c.customer_name ILIKE '%' || p_search || '%')
-  ORDER BY c.recovery_opportunity DESC, c.days_since_last_order DESC
-  LIMIT v_limit
-  OFFSET v_offset;
-END;
-$$;
+AS $function$
+with params as (select coalesce(p_as_of_date,current_date)::date as as_of_date),
+product_order_sales as (
+  select l.order_id, sum(l.subtotal)::numeric product_sales
+  from public.product_sales_from_june1 l
+  where p_product_id is not null and l.product_id=p_product_id
+  group by l.order_id
+),
+base_orders as (
+  select o.order_id,o.order_date_cairo,o.customer_id,o.customer_name,o.company_name,o.salesperson,
+         case when p_product_id is null then o.order_value else pos.product_sales end::numeric order_value
+  from public.sales_orders_odoo18_geo o
+  cross join params p
+  left join product_order_sales pos on pos.order_id=o.order_id
+  where o.order_date_cairo <= p.as_of_date
+    and (p_company_name is null or o.company_name=p_company_name)
+    and (p_governorate_code is null or o.governorate_code=p_governorate_code)
+    and (p_area_code is null or o.area_code=p_area_code)
+    and (p_customer_id is null or o.customer_id=p_customer_id)
+    and (p_product_id is null or pos.order_id is not null)
+),
+customer_scope as (
+  select distinct customer_id,customer_name,company_name from base_orders
+),
+order_stats as (
+  select b.customer_id,b.company_name,max(b.customer_name) customer_name,max(b.order_date_cairo) last_order_date,
+         (p.as_of_date-max(b.order_date_cairo))::int days_since_last_order,
+         sum(b.order_value) filter(where b.order_date_cairo between p.as_of_date-29 and p.as_of_date) recent_30d_sales,
+         sum(b.order_value) filter(where b.order_date_cairo between p.as_of_date-59 and p.as_of_date-30) previous_30d_sales,
+         mode() within group(order by b.salesperson) filter(where b.order_date_cairo between p.as_of_date-29 and p.as_of_date) current_salesperson
+  from base_orders b cross join params p
+  group by b.customer_id,b.company_name,p.as_of_date
+),
+order_days as (
+  select distinct customer_id,company_name,order_date_cairo from base_orders
+),
+gaps as (
+  select customer_id,company_name,order_date_cairo-lag(order_date_cairo) over(partition by customer_id,company_name order by order_date_cairo) gap_days
+  from order_days
+),
+medians as (
+  select customer_id,company_name,
+         percentile_cont(0.5) within group(order by gap_days) filter(where gap_days is not null) median_days_between_orders
+  from gaps group by customer_id,company_name
+),
+owner_months as (
+  select b.customer_id,b.company_name,date_trunc('month',b.order_date_cairo)::date month_start,
+         mode() within group(order by b.salesperson) owner
+  from base_orders b cross join params p
+  where b.order_date_cairo >= date_trunc('month',p.as_of_date-interval '1 month')::date
+  group by b.customer_id,b.company_name,date_trunc('month',b.order_date_cairo)::date
+),
+owners as (
+  select om.customer_id,om.company_name,
+         max(om.owner) filter(where om.month_start=date_trunc('month',p.as_of_date)::date) current_owner,
+         max(om.owner) filter(where om.month_start=date_trunc('month',p.as_of_date-interval '1 month')::date) previous_owner
+  from owner_months om cross join params p
+  group by om.customer_id,om.company_name
+),
+classified as (
+  select s.customer_id,s.customer_name,s.company_name,
+         coalesce(s.current_salesperson,o.current_owner,o.previous_owner) current_salesperson,
+         s.last_order_date,s.days_since_last_order,round(coalesce(m.median_days_between_orders,0)::numeric,2) median_days_between_orders,
+         coalesce(s.recent_30d_sales,0)::numeric recent_30d_sales,
+         coalesce(s.previous_30d_sales,0)::numeric previous_30d_sales,
+         case when coalesce(s.previous_30d_sales,0)=0 then null
+              else round(((coalesce(s.recent_30d_sales,0)-s.previous_30d_sales)/s.previous_30d_sales*100)::numeric,2) end sales_change_pct,
+         greatest(coalesce(s.previous_30d_sales,0)-coalesce(s.recent_30d_sales,0),0)::numeric recovery_opportunity,
+         case when s.days_since_last_order>120 then 'LOST'
+              when s.days_since_last_order>60 then 'HIGH'
+              when s.days_since_last_order>30 then 'MEDIUM'
+              when coalesce(s.previous_30d_sales,0)>0 and coalesce(s.recent_30d_sales,0)<=s.previous_30d_sales*0.5 then 'HIGH'
+              when coalesce(s.previous_30d_sales,0)>0 and coalesce(s.recent_30d_sales,0)<s.previous_30d_sales*0.7 then 'MEDIUM'
+              else 'LOW' end risk_level,
+         case when s.days_since_last_order>120 then 'REACTIVATE_LOST'
+              when s.days_since_last_order>30 then 'WIN_BACK'
+              when coalesce(s.previous_30d_sales,0)>0 and coalesce(s.recent_30d_sales,0)<s.previous_30d_sales*0.7 then 'RECOVER_DECLINE'
+              when coalesce(m.median_days_between_orders,0)>0 and s.days_since_last_order>greatest(7,ceil(m.median_days_between_orders*2)) then 'OVERDUE_FOLLOWUP'
+              when o.previous_owner is not null and o.current_owner is not null and o.previous_owner<>o.current_owner then 'OWNER_TRANSFER_REVIEW'
+              else 'MONITOR' end action_type,
+         case when s.days_since_last_order>120 then 'HIGH'
+              when s.days_since_last_order>60 then 'HIGH'
+              when greatest(coalesce(s.previous_30d_sales,0)-coalesce(s.recent_30d_sales,0),0)>=100000 then 'HIGH'
+              when s.days_since_last_order>30 then 'MEDIUM'
+              when greatest(coalesce(s.previous_30d_sales,0)-coalesce(s.recent_30d_sales,0),0)>=25000 then 'MEDIUM'
+              when coalesce(m.median_days_between_orders,0)>0 and s.days_since_last_order>greatest(7,ceil(m.median_days_between_orders*2)) then 'MEDIUM'
+              else 'LOW' end priority,
+         case when s.days_since_last_order>120 then 'العميل متوقف عن الشراء لأكثر من 120 يومًا'
+              when s.days_since_last_order>30 then 'العميل لم يطلب منذ أكثر من 30 يومًا'
+              when coalesce(s.previous_30d_sales,0)>0 and coalesce(s.recent_30d_sales,0)<s.previous_30d_sales*0.7 then 'مبيعات آخر 30 يومًا انخفضت بأكثر من 30%'
+              when coalesce(m.median_days_between_orders,0)>0 and s.days_since_last_order>greatest(7,ceil(m.median_days_between_orders*2)) then 'العميل متأخر عن نمط الشراء المعتاد'
+              when o.previous_owner is not null and o.current_owner is not null and o.previous_owner<>o.current_owner then 'تم تغيير المندوب الأساسي مقارنة بالشهر السابق'
+              else 'لا توجد إشارة تدخل عاجلة' end action_reason,
+         (o.previous_owner is not null and o.current_owner is not null and o.previous_owner<>o.current_owner) salesperson_changed
+  from order_stats s
+  left join medians m using(customer_id,company_name)
+  left join owners o using(customer_id,company_name)
+)
+select c.*
+from classified c
+where (p_salesperson is null or c.current_salesperson=p_salesperson)
+  and (p_action_type is null or c.action_type=p_action_type)
+  and (p_priority is null or c.priority=p_priority)
+  and (p_risk is null or upper(c.risk_level)=upper(p_risk))
+  and (p_search is null or c.customer_name ilike '%'||p_search||'%' or c.customer_id::text ilike '%'||p_search||'%')
+order by case c.priority when 'HIGH' then 1 when 'MEDIUM' then 2 else 3 end,
+         c.recovery_opportunity desc,c.days_since_last_order desc,c.customer_name
+limit least(greatest(coalesce(p_limit,20),1),20)
+offset greatest(coalesce(p_offset,0),0);
+$function$;

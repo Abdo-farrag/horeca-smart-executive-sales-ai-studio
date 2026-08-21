@@ -86,17 +86,22 @@ export const CustomerDashboard: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [selectedCustomerName, setSelectedCustomerName] = useState<string>('');
 
+  // Memoize effective filters and dashboard options to ensure stable references
+  const effectiveCustomerFilters = useMemo(() => ({
+    ...filters,
+    salesRepId: salespersonFilter === 'All' ? filters.salesRepId : salespersonFilter,
+  }), [filters, salespersonFilter]);
+
+  const customerDashboardOptions = useMemo(() => ({
+    status: statusFilter,
+    search: searchTerm,
+    limit: 1000,
+  }), [statusFilter, searchTerm]);
+
   // Call live custom hook backed by analytics.customers.summary RPC
   const { data, loading, error, refetch } = useCustomerDashboard(
-    {
-      ...filters,
-      salesRepId: salespersonFilter === 'All' ? filters.salesRepId : salespersonFilter,
-    },
-    {
-      status: statusFilter,
-      search: searchTerm,
-      limit: 1000,
-    }
+    effectiveCustomerFilters,
+    customerDashboardOptions
   );
 
   // Derive top KPIs strictly from returned live customer summary rows

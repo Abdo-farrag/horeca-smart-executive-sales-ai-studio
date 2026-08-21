@@ -19,8 +19,8 @@ export interface EffectiveFilterParams {
 }
 
 export function getEffectiveFilterParams(filters: GlobalFilterState): EffectiveFilterParams {
-  const effectiveStartDate = filters.effectiveStartDate || filters.dateRange?.startDate || '2026-08-01';
-  const effectiveEndDate = filters.effectiveEndDate || filters.dateRange?.endDate || '2026-08-09';
+  const effectiveStartDate = filters.effectiveStartDate || filters.dateRange?.startDate || '';
+  const effectiveEndDate = filters.effectiveEndDate || filters.dateRange?.endDate || filters.latestAvailableDataDate || '';
 
   let companyName: string | null = filters.companyName ?? null;
   if (!companyName && filters.company && (filters.company as string) !== 'All') {

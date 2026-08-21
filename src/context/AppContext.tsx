@@ -71,12 +71,11 @@ interface AppContextType {
   setSelectedProduct: (product: Product | null) => void;
 }
 
-const INITIAL_LATEST_DATA_DATE = '2026-08-09';
-const initialCurrentMonth = getCurrentMonthRange('2026-08-10');
+const initialCurrentMonth = getCurrentMonthRange();
 const initialEffective = calculateEffectiveWindow(
   initialCurrentMonth.startDate,
   initialCurrentMonth.endDate,
-  INITIAL_LATEST_DATA_DATE
+  null
 );
 
 const DEFAULT_FILTERS: GlobalFilterState = {
@@ -85,7 +84,7 @@ const DEFAULT_FILTERS: GlobalFilterState = {
   selectedEndDate: initialCurrentMonth.endDate,
   effectiveStartDate: initialEffective.effectiveStartDate,
   effectiveEndDate: initialEffective.effectiveEndDate,
-  latestAvailableDataDate: INITIAL_LATEST_DATA_DATE,
+  latestAvailableDataDate: '',
   companyId: null,
   companyName: null,
   company: 'All',

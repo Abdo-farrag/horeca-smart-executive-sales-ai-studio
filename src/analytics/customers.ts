@@ -526,8 +526,10 @@ export const customers = {
       salespersonChanged: Boolean(row.salesperson_changed ?? row.is_salesperson_changed ?? false),
     });
 
+    let rawRows: CustomerActionCenterResult[] = [];
+
     try {
-      return await callAnalyticsRpc(
+      rawRows = await callAnalyticsRpc(
         'analytics_customer_action_center_v2',
         {
           p_as_of_date: params.asOfDate ?? null,
@@ -562,8 +564,147 @@ export const customers = {
         const lowerRisk = params.risk.toLowerCase();
         rows = rows.filter((r) => r.risk.toLowerCase() === lowerRisk);
       }
-      return rows;
+      rawRows = rows;
     }
+
+    // If companyName is specified (e.g. 'MAS' or 'Horeca Smart'), preserve company-scoped behavior
+    if (params.companyName) {
+      return rawRows;
+    }
+
+    // Enterprise customer grain consolidation (p_company_name IS NULL)
+    // Check if there are multiple company rows for the same customer_id
+    const customerMap = new Map<number, CustomerActionCenterResult[]>();
+    for (const row of rawRows) {
+      const list = customerMap.get(row.customerId) || [];
+      list.push(row);
+      customerMap.set(row.customerId, list);
+    }
+
+    let hasMultiCompanyRows = false;
+    for (const list of customerMap.values()) {
+      if (list.length > 1) {
+        hasMultiCompanyRows = true;
+        break;
+      }
+    }
+
+    if (!hasMultiCompanyRows && !params.limit && !params.offset) {
+      return rawRows;
+    }
+
+    const consolidated: CustomerActionCenterResult[] = [];
+    for (const [, rows] of customerMap.entries()) {
+      if (rows.length === 1) {
+        consolidated.push(rows[0]);
+        continue;
+      }
+
+      // Sort by lastOrderDate descending
+      rows.sort((a, b) => {
+        const dateA = a.lastOrderDate ? new Date(a.lastOrderDate).getTime() : 0;
+        const dateB = b.lastOrderDate ? new Date(b.lastOrderDate).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      const mostRecentRow = rows[0];
+      const latestOrderDate = mostRecentRow.lastOrderDate;
+      const minDaysSince = Math.min(...rows.map((r) => r.daysSinceLastOrder));
+      const totalPrevious30d = rows.reduce((sum, r) => sum + r.previous30dSales, 0);
+      const totalRecent30d = rows.reduce((sum, r) => sum + r.recent30dSales, 0);
+      const recoveryOpp = Math.max(0, totalPrevious30d - totalRecent30d);
+      const salesChangePct = totalPrevious30d > 0
+        ? ((totalRecent30d - totalPrevious30d) / totalPrevious30d) * 100
+        : null;
+      const medianInterval = mostRecentRow.medianBuyingInterval || 0;
+      const salespersonChanged = rows.some((r) => r.salespersonChanged);
+
+      // Business risk rules
+      let risk = 'LOW';
+      if (minDaysSince > 120) {
+        risk = 'LOST';
+      } else if (minDaysSince > 60 || (totalPrevious30d > 0 && totalRecent30d <= totalPrevious30d * 0.5)) {
+        risk = 'HIGH';
+      } else if (minDaysSince > 30 || (totalPrevious30d > 0 && totalRecent30d < totalPrevious30d * 0.7)) {
+        risk = 'MEDIUM';
+      }
+
+      // Business action_type rules
+      let actionType = 'MONITOR';
+      let actionReason = 'أداء مستقر - استمرار المتابعة الدورية';
+      if (minDaysSince > 120) {
+        actionType = 'REACTIVATE_LOST';
+        actionReason = 'عميل متوقف عن الشراء لأكثر من 120 يوما';
+      } else if (minDaysSince > 30) {
+        actionType = 'WIN_BACK';
+        actionReason = 'عميل متوقف عن الشراء لأكثر من 30 يوما';
+      } else if (totalPrevious30d > 0 && totalRecent30d < totalPrevious30d * 0.7) {
+        actionType = 'RECOVER_DECLINE';
+        actionReason = 'انخفاض في المبيعات مقارنة بالفترة السابقة';
+      } else if (medianInterval > 0 && minDaysSince > Math.max(7, Math.ceil(medianInterval * 2))) {
+        actionType = 'OVERDUE_FOLLOWUP';
+        actionReason = 'تأخر في الشراء عن الدورة المعتادة';
+      } else if (salespersonChanged) {
+        actionType = 'OWNER_TRANSFER_REVIEW';
+        actionReason = 'تغيير في مسؤول المبيعات يتطلب متابعة';
+      }
+
+      // Business priority rules
+      let priority = 'LOW';
+      if (minDaysSince > 120 || minDaysSince > 60 || recoveryOpp >= 100000) {
+        priority = 'HIGH';
+      } else if (minDaysSince > 30 || recoveryOpp >= 25000 || (medianInterval > 0 && minDaysSince > Math.max(7, Math.ceil(medianInterval * 2)))) {
+        priority = 'MEDIUM';
+      }
+
+      consolidated.push({
+        customerId: mostRecentRow.customerId,
+        customerName: mostRecentRow.customerName,
+        companyName: 'All',
+        salesperson: mostRecentRow.salesperson,
+        priority,
+        actionType,
+        actionReason,
+        lastOrderDate: latestOrderDate,
+        daysSinceLastOrder: minDaysSince,
+        medianBuyingInterval: medianInterval,
+        previous30dSales: totalPrevious30d,
+        recent30dSales: totalRecent30d,
+        salesChangePct,
+        recoveryOpportunity: recoveryOpp,
+        risk,
+        salespersonChanged,
+      });
+    }
+
+    // Filter consolidated items if priority, risk, actionType or search were requested
+    let finalRows = consolidated;
+    if (params.priority) {
+      const p = params.priority.toUpperCase();
+      finalRows = finalRows.filter((r) => r.priority.toUpperCase() === p);
+    }
+    if (params.risk) {
+      const r = params.risk.toUpperCase();
+      finalRows = finalRows.filter((row) => row.risk.toUpperCase() === r);
+    }
+    if (params.actionType) {
+      const a = params.actionType.toUpperCase();
+      finalRows = finalRows.filter((r) => r.actionType.toUpperCase() === a);
+    }
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      finalRows = finalRows.filter((r) =>
+        r.customerName.toLowerCase().includes(q) || String(r.customerId).includes(q)
+      );
+    }
+
+    if (params.limit != null || params.offset != null) {
+      const offset = params.offset ?? 0;
+      const limit = params.limit ?? finalRows.length;
+      return finalRows.slice(offset, offset + limit);
+    }
+
+    return finalRows;
   },
 
   async customerOrdersV2(params: CustomerOrdersV2Params): Promise<CustomerOrdersV2Result[]> {

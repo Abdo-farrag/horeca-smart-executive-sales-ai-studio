@@ -41,6 +41,12 @@ export const ProductDashboard: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const itemsPerPage = 25;
 
+  const productDashboardOptions = useMemo(() => ({
+    search: searchTerm || null,
+    limit: 1000,
+    offset: 0,
+  }), [searchTerm]);
+
   const {
     data,
     loading,
@@ -49,11 +55,7 @@ export const ProductDashboard: React.FC = () => {
     reconciliationLoading,
     reconciliationError,
     refetch
-  } = useProductDashboard(filters, {
-    search: searchTerm || null,
-    limit: 1000,
-    offset: 0,
-  });
+  } = useProductDashboard(filters, productDashboardOptions);
 
   // Client-side sorting & pagination
   const sortedData = useMemo(() => {

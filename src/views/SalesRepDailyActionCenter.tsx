@@ -134,7 +134,7 @@ export const SalesRepDailyActionCenter: React.FC = () => {
   }, [salesReps]);
 
   // Primary State Filters
-  const [asOfDate, setAsOfDate] = useState<string>(filters.latestAvailableDataDate || '2026-08-09');
+  const [asOfDate, setAsOfDate] = useState<string>(filters.latestAvailableDataDate || '');
 
   useEffect(() => {
     if (filters.latestAvailableDataDate) {
@@ -421,8 +421,8 @@ export const SalesRepDailyActionCenter: React.FC = () => {
               onChange={(e) => setSelectedSalesperson(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none"
             >
-              {salesRepOptions.map((rep) => (
-                <option key={rep} value={rep}>
+              {salesRepOptions.map((rep, idx) => (
+                <option key={`rep-opt-${rep}-${idx}`} value={rep}>
                   {rep}
                 </option>
               ))}
@@ -761,7 +761,7 @@ export const SalesRepDailyActionCenter: React.FC = () => {
           <div className="text-xs text-rose-600 dark:text-rose-400">{errorPriorities}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {prioritiesData.map((p) => {
+            {prioritiesData.map((p, idx) => {
               const priorityUpper = (p.priority || '').toUpperCase();
               const isHigh = priorityUpper === 'HIGH';
               const isMed = priorityUpper === 'MEDIUM';
@@ -779,7 +779,7 @@ export const SalesRepDailyActionCenter: React.FC = () => {
                 : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/50';
 
               return (
-                <div key={p.priority} className={`p-4 rounded-xl border ${cardBg} space-y-2`}>
+                <div key={`${p.priority}_${idx}`} className={`p-4 rounded-xl border ${cardBg} space-y-2`}>
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs uppercase tracking-wide text-slate-800 dark:text-slate-200">
                       {isAr

@@ -397,8 +397,8 @@ export const ExecutiveDashboard: React.FC = () => {
           </div>
 
           <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
-            {companyPieData.map(item => (
-              <div key={item.name} className="flex items-center justify-between">
+            {companyPieData.map((item, idx) => (
+              <div key={`${item.name}_${idx}`} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="font-bold text-slate-800 dark:text-slate-200">{item.name}</span>

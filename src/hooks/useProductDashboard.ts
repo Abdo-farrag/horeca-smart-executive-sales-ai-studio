@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlobalFilterState } from '../types';
 import { ProductSummaryResult, ProductReconciliationResult } from '../analytics/types';
 import { fetchProductSummaryList, fetchProductReconciliation } from '../services/productService';
@@ -20,6 +20,26 @@ export function useProductDashboard(
 
   const { search, limit, offset } = options;
 
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  const optionsRef = useRef({ search, limit, offset });
+  optionsRef.current = { search, limit, offset };
+
+  const filterKey = JSON.stringify({
+    start: filters.effectiveStartDate || filters.dateRange?.startDate,
+    end: filters.effectiveEndDate || filters.dateRange?.endDate,
+    company: filters.company,
+    salesperson: filters.salesperson || filters.salespersonName || filters.salesRepId,
+    governorate: filters.governorateCode,
+    area: filters.areaCode,
+    customer: filters.customerId,
+    product: filters.productId,
+    search: search ?? null,
+    limit: limit ?? null,
+    offset: offset ?? null,
+  });
+
   const load = useCallback(async () => {
     setLoading(true);
     setReconciliationLoading(true);
@@ -27,8 +47,8 @@ export function useProductDashboard(
     setReconciliationError(null);
 
     const [sumRes, reconRes] = await Promise.all([
-      fetchProductSummaryList(filters, { search, limit, offset }),
-      fetchProductReconciliation(filters)
+      fetchProductSummaryList(filtersRef.current, optionsRef.current),
+      fetchProductReconciliation(filtersRef.current)
     ]);
 
     setData(sumRes.data);
@@ -38,11 +58,39 @@ export function useProductDashboard(
     setReconciliation(reconRes.data);
     setReconciliationError(reconRes.error);
     setReconciliationLoading(false);
-  }, [filters, search, limit, offset]);
+  }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let isCurrent = true;
+
+    async function execute() {
+      setLoading(true);
+      setReconciliationLoading(true);
+      setError(null);
+      setReconciliationError(null);
+
+      const [sumRes, reconRes] = await Promise.all([
+        fetchProductSummaryList(filtersRef.current, optionsRef.current),
+        fetchProductReconciliation(filtersRef.current)
+      ]);
+
+      if (isCurrent) {
+        setData(sumRes.data);
+        setError(sumRes.error);
+        setLoading(false);
+
+        setReconciliation(reconRes.data);
+        setReconciliationError(reconRes.error);
+        setReconciliationLoading(false);
+      }
+    }
+
+    execute();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [filterKey]);
 
   return {
     data,

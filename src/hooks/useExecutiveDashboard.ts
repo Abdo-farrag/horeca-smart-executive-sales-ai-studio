@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlobalFilterState } from '../types';
 import { fetchExecutiveDashboardData, ExecutiveDashboardData } from '../services/executiveService';
 import { DataSourceState } from '../components/DataSourceStatus';
@@ -18,12 +18,26 @@ export function useExecutiveDashboard(filters: GlobalFilterState): UseExecutiveD
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<ExecutiveDashboardData | null>(null);
 
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  const filterKey = JSON.stringify({
+    start: filters.effectiveStartDate || filters.dateRange?.startDate,
+    end: filters.effectiveEndDate || filters.dateRange?.endDate,
+    company: filters.company,
+    salesperson: filters.salesperson || filters.salespersonName || filters.salesRepId,
+    governorate: filters.governorateCode,
+    area: filters.areaCode,
+    customer: filters.customerId,
+    product: filters.productId,
+  });
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetchExecutiveDashboardData(filters);
+      const res = await fetchExecutiveDashboardData(filtersRef.current);
       setDashboardData(res);
       setError(res.errorMessage);
     } catch (err: any) {
@@ -32,11 +46,38 @@ export function useExecutiveDashboard(filters: GlobalFilterState): UseExecutiveD
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let isCurrent = true;
+
+    async function execute() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetchExecutiveDashboardData(filtersRef.current);
+        if (isCurrent) {
+          setDashboardData(res);
+          setError(res.errorMessage);
+        }
+      } catch (err: any) {
+        console.error('Error loading Executive Dashboard hook:', err);
+        if (isCurrent) {
+          setError(err?.message || 'Failed to fetch dashboard data');
+        }
+      } finally {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      }
+    }
+
+    execute();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [filterKey]);
 
   const status: DataSourceState = loading
     ? 'loading'

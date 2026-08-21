@@ -46,7 +46,7 @@ export const CustomerActionCenter: React.FC = () => {
   const isAr = language === 'ar';
 
   // State for as-of date (Defaulting to latest available sales data date)
-  const [asOfDate, setAsOfDate] = useState<string>(filters.latestAvailableDataDate || '2026-08-09');
+  const [asOfDate, setAsOfDate] = useState<string>(filters.latestAvailableDataDate || '');
 
   useEffect(() => {
     if (filters.latestAvailableDataDate) {
@@ -95,7 +95,8 @@ export const CustomerActionCenter: React.FC = () => {
           companyId,
         });
         if (isMounted) {
-          setSalespersonOptions(res.map((sp) => ({ salesperson: sp.salespersonName, salespersonName: sp.salespersonName })));
+          const uniqueNames = Array.from(new Set(res.map((sp) => sp.salespersonName).filter(Boolean)));
+          setSalespersonOptions(uniqueNames.map((name) => ({ salesperson: name, salespersonName: name })));
         }
       } catch (err) {
         console.error('Error loading salespeople in CustomerActionCenter:', err);
@@ -526,8 +527,8 @@ export const CustomerActionCenter: React.FC = () => {
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-semibold text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="All">{isAr ? 'جميع المندوبين' : 'All Representatives'}</option>
-              {salespersonOptions.map((sp) => (
-                <option key={sp.salesperson} value={sp.salesperson}>
+              {salespersonOptions.map((sp, idx) => (
+                <option key={`sp-${sp.salesperson}-${idx}`} value={sp.salesperson}>
                   {sp.salespersonName || sp.salesperson}
                 </option>
               ))}
@@ -864,10 +865,10 @@ export const CustomerActionCenter: React.FC = () => {
             <div className="p-3 text-xs text-red-600">{errorRisk}</div>
           ) : (
             <div className="space-y-4">
-              {riskDistribution.map((item) => {
+              {riskDistribution.map((item, idx) => {
                 const badge = getRiskBadge(item.riskLevel);
                 return (
-                  <div key={item.riskLevel} className="space-y-1.5">
+                  <div key={`${item.riskLevel}_${idx}`} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${badge.className}`}>
