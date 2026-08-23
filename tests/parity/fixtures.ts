@@ -1,0 +1,33 @@
+export const mockFilterState = {
+  periodMode: 'current_month' as const,
+  selectedStartDate: '2026-08-01',
+  selectedEndDate: '2026-08-31',
+  effectiveStartDate: '2026-08-01',
+  effectiveEndDate: '2026-08-31',
+  latestAvailableDataDate: '2026-08-16',
+  companyId: null,
+  companyName: null,
+  company: 'All' as const,
+  salespersonOptionKey: null,
+  salespersonName: null,
+  salespersonCompanyId: null,
+  salesperson: null,
+  salesRepId: '',
+  governorateCode: null,
+  governorateName: null,
+  areaCode: null,
+  areaName: null,
+  customerId: null,
+  customerName: null,
+  productId: null,
+  productName: null,
+  dateRange: {
+    label: 'Current Month',
+    startDate: '2026-08-01',
+    endDate: '2026-08-31',
+    preset: 'current_mtd' as const
+  },
+  area: 'All',
+  city: 'All',
+  category: 'All'
+};

@@ -8,6 +8,12 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
+        '@horeca-smart/core/analytics': path.resolve(__dirname, './packages/core/src/analytics/index.ts'),
+        '@horeca-smart/core/filters': path.resolve(__dirname, './packages/core/src/filters/index.ts'),
+        '@horeca-smart/core/business-rules': path.resolve(__dirname, './packages/core/src/business-rules/index.ts'),
+        '@horeca-smart/core/contracts': path.resolve(__dirname, './packages/core/src/contracts/index.ts'),
+        '@horeca-smart/core/ai': path.resolve(__dirname, './packages/core/src/ai/index.ts'),
+        '@horeca-smart/core': path.resolve(__dirname, './packages/core/src/index.ts'),
         '@': path.resolve(__dirname, '.'),
       },
     },

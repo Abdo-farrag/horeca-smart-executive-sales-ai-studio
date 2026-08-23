@@ -1,0 +1,6 @@
+{
+  "name": "Horeca Smart - Executive Sales Intelligence Platform",
+  "description": "Enterprise Sales Intelligence Platform for Horeca Smart B2B Food Distribution serving Restaurants, Cafés, Hotels, Bakeries, and Catering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

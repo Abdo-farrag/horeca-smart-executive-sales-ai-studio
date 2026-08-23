@@ -1,0 +1,44 @@
+{
+  "name": "@horeca-smart/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./analytics": {
+      "import": "./src/analytics/index.ts",
+      "types": "./src/analytics/index.ts"
+    },
+    "./filters": {
+      "import": "./src/filters/index.ts",
+      "types": "./src/filters/index.ts"
+    },
+    "./business-rules": {
+      "import": "./src/business-rules/index.ts",
+      "types": "./src/business-rules/index.ts"
+    },
+    "./contracts": {
+      "import": "./src/contracts/index.ts",
+      "types": "./src/contracts/index.ts"
+    },
+    "./ai": {
+      "import": "./src/ai/index.ts",
+      "types": "./src/ai/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.111.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  }
+}

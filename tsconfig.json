@@ -18,6 +18,12 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@horeca-smart/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@horeca-smart/core/*": [
+        "./packages/core/src/*"
       ]
     },
     "allowImportingTsExtensions": true,

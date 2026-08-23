@@ -1,5 +1,5 @@
 -- ==============================================================================
--- MIGRATION: 20260820000000_customer_action_center_freshness_fix.sql
+-- MIGRATION: 20260821025858_customer_action_center_freshness_fix.sql
 -- PURPOSE: Fix dynamic data freshness default and cross-company customer aggregation grain
 --          for Customer Action Center, Action Center Scoped v2, and Recovery Opportunities.
 --
