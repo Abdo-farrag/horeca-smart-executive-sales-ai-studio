@@ -1,6 +1,7 @@
 import express from "express";
+import fs from "fs";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import {
@@ -12,6 +13,9 @@ import {
 } from "./src/services/ai/aiContextSanitizer";
 import { AiContextMode, AiQueryIntent } from "./src/types/ai";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 
 const app = express();
@@ -19,7 +23,11 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
-// Health check endpoint for Cloud Run and monitoring probes
+// Health check endpoints for Cloud Run and monitoring probes
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
@@ -303,6 +311,7 @@ ${sanitizedDrillDown ? `ExecutiveDrillDownContext:\n${JSON.stringify(sanitizedDr
 // Start Express + Vite
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -311,14 +320,25 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
+    app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Horeca Smart Server running on http://0.0.0.0:${PORT}`);
   });
+
+  const handleShutdown = (signal: string) => {
+    console.log(`${signal} received, closing HTTP server...`);
+    server.close(() => {
+      console.log("HTTP server closed.");
+      process.exit(0);
+    });
+  };
+
+  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+  process.on("SIGINT", () => handleShutdown("SIGINT"));
 }
 
 startServer();
