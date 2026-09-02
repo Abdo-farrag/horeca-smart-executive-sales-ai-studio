@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as mockData from '../../data/mockData';
 import { fetchSalesOrders } from '../../services/salesService';
-import { getFallbackExecutiveData } from '../../services/executiveService';
+import { createUnavailableExecutiveData } from '../../services/executiveService';
 
 vi.mock('../../lib/supabase', () => ({
   isSupabaseConfigured: true,
@@ -14,22 +14,7 @@ vi.mock('../../lib/supabase', () => ({
         gte: vi.fn().mockReturnThis(),
         lte: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        then: (resolve: any) =>
-          resolve({
-            data: [
-              {
-                order_id: 101,
-                order_name: 'SO/2026/001',
-                order_date_cairo: '2026-08-05',
-                company_name: 'MAS',
-                customer_id: 30709,
-                customer_name: 'خالد حسين',
-                salesperson: 'Haddil Haron',
-                order_value: 50000,
-              },
-            ],
-            error: null,
-          }),
+        then: (resolve: any) => resolve({ data: [{ order_id: 101, order_name: 'SO/2026/001', order_date_cairo: '2026-08-05', company_name: 'MAS', customer_id: 30709, customer_name: 'خالد حسين', salesperson: 'Haddil Haron', order_value: 50000 }], error: null }),
       };
       return builder;
     }),
@@ -69,11 +54,7 @@ describe('P0 Audit: Non-Existence of Fake / Mock / Demo Data', () => {
   });
 
   it('salesService returned orders should not contain fake order IDs or fake customer names', async () => {
-    const filterState: any = {
-      dateRange: { startDate: '2026-08-01', endDate: '2026-08-31' },
-      company: 'All',
-      salespersonName: null,
-    };
+    const filterState: any = { dateRange: { startDate: '2026-08-01', endDate: '2026-08-31' }, company: 'All', salespersonName: null };
     const res = await fetchSalesOrders(filterState);
     const serialized = JSON.stringify(res.orders);
     expect(serialized).not.toContain('ORD-2026-8801');
@@ -87,17 +68,16 @@ describe('P0 Audit: Non-Existence of Fake / Mock / Demo Data', () => {
     expect(serialized).not.toContain('طارق الغامدي');
   }, 25000);
 
-  it('executiveService fallback should return zeroed KPIs and empty lists', () => {
-    const filterState: any = {
-      dateRange: { startDate: '2026-08-01', endDate: '2026-08-31' },
-      company: 'All',
-    };
-    const fallback = getFallbackExecutiveData(filterState, 'Test fallback', '2026-08-12T00:00:00Z');
-    expect(fallback.kpis).toEqual([]);
-    expect(fallback.salesByCompany).toEqual([]);
-    expect(fallback.topSalesReps).toEqual([]);
-    expect(fallback.topCustomers).toEqual([]);
-    expect(fallback.confirmedOrdersCount).toBe(0);
-    expect(fallback.totalSales).toBe(0);
+  it('executiveService unavailable state should return zeroed KPIs and empty lists', () => {
+    const filterState: any = { effectiveStartDate: '2026-08-01', effectiveEndDate: '2026-08-31', dateRange: { startDate: '2026-08-01', endDate: '2026-08-31' }, company: 'All' };
+    const unavailable = createUnavailableExecutiveData(filterState, 'Test unavailable state');
+    expect(unavailable.kpis).toEqual([]);
+    expect(unavailable.salesByCompany).toEqual([]);
+    expect(unavailable.topSalesReps).toEqual([]);
+    expect(unavailable.topCustomers).toEqual([]);
+    expect(unavailable.confirmedOrdersCount).toBe(0);
+    expect(unavailable.totalSales).toBe(0);
+    expect(unavailable.isLiveSupabaseData).toBe(false);
+    expect(unavailable.diagnostics.isMockFallback).toBe(false);
   });
 });
