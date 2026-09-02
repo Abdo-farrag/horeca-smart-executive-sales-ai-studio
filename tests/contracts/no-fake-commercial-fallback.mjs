@@ -12,26 +12,26 @@ for (const root of roots) {
   const appSource = fs.readFileSync(appFile, 'utf8');
   assert.match(
     appSource,
-    /from ['"]\.\/views\/ExecutiveDashboardP0['"]/,
-    `${appFile} must route the executive screen through ExecutiveDashboardP0`,
+    /from ['"]\.\/views\/ExecutiveDashboard['"]/,
+    `${appFile} must preserve the existing ExecutiveDashboard route`,
   );
   assert.doesNotMatch(
     appSource,
-    /from ['"]\.\/views\/ExecutiveDashboard['"]/,
-    `${appFile} must not import the legacy ExecutiveDashboard runtime`,
+    /from ['"]\.\/views\/ExecutiveDashboardP0['"]/,
+    `${appFile} must not replace the existing Executive Dashboard with a reduced P0 screen`,
   );
 
   for (const file of [
-    `${root}/views/ExecutiveDashboardP0.tsx`,
-    `${root}/hooks/useExecutiveDashboardP0.ts`,
-    `${root}/services/executiveServiceP0.ts`,
+    `${root}/views/ExecutiveDashboard.tsx`,
+    `${root}/hooks/useExecutiveDashboard.ts`,
+    `${root}/services/executiveService.ts`,
   ]) {
     assert.ok(fs.existsSync(file), `${file} must exist`);
     activeRuntimeFiles.push(file);
   }
 }
 
-assert.ok(activeRuntimeFiles.length > 0, 'Expected P0 Executive Dashboard runtime files to exist');
+assert.ok(activeRuntimeFiles.length > 0, 'Expected active Executive Dashboard runtime files to exist');
 
 const forbiddenPatterns = [
   { pattern: /fallbackKpis/, reason: 'Executive KPI cards must not fall back to seeded commercial KPIs' },
@@ -40,6 +40,7 @@ const forbiddenPatterns = [
   { pattern: /retentionRate\s*:\s*88\.4/, reason: 'Seeded retention values are forbidden in runtime code' },
   { pattern: /rowsSynced\s*:\s*15209/, reason: 'Seeded sync row counts are forbidden in runtime code' },
   { pattern: /\|\|\s*15209/, reason: 'Seeded sync row-count fallbacks are forbidden in runtime code' },
+  { pattern: /AuditDiagnosticsPanel/, reason: 'Audit diagnostics must not render inside the Executive Dashboard' },
   { pattern: /Demo Data|بيانات توضيحية|Mock Fallback/i, reason: 'Active executive runtime must fail closed, not present demo business data' },
 ];
 
@@ -56,4 +57,4 @@ assert.deepEqual(
   `Fake commercial fallback contract violations:\n${violations.map((v) => `- ${v}`).join('\n')}`,
 );
 
-console.log('✓ No fake commercial fallback contract passed');
+console.log('✓ Executive fail-closed feature-preservation contract passed');
