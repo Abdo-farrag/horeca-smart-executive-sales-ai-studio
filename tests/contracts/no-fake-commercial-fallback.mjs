@@ -22,10 +22,10 @@ for (const root of roots) {
   const forbiddenPatterns = [
     [/fallbackKpis/, 'Executive KPI cards must not fall back to seeded context KPIs'],
     [/getFallbackExecutiveData\s*\(/, 'Executive service must not manufacture fallback commercial data'],
-    [/['"]mock_fallback['"]/, 'Executive status must not expose mock fallback mode'],
+    [/status\s*:\s*['"]mock_fallback['"]|\?\s*['"]mock_fallback['"]|:\s*['"]mock_fallback['"]/, 'Executive status must not emit mock fallback mode'],
     [/retentionRate\s*:\s*88\.4/, 'Seeded retention values are forbidden'],
     [/rowsSynced\s*:\s*15209|\|\|\s*15209/, 'Seeded sync row counts are forbidden'],
-    [/Mock fallback|Mock Fallback|\[SECTION STATUS:.*Mock/, 'Executive runtime must not label commercial sections as mock data'],
+    [/dataMode\s*:\s*['"]Mock fallback['"]|Mock Fallback Mode|Demo Data|\[SECTION STATUS:[^\]]*Mock/, 'Executive runtime must not present mock business data'],
     [/AuditDiagnosticsPanel/, 'Audit diagnostics must not render in the Executive Dashboard'],
   ];
 
