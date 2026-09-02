@@ -13,9 +13,9 @@
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "test": "vitest run",
+    "test": "npm run contracts:test && vitest run",
     "lint": "tsc --noEmit",
-    "contracts:test": "node tests/contracts/migration-history.mjs && node tests/contracts/no-hardcoded-runtime-sales-date.mjs && node tests/contracts/core-analytics-boundary.mjs && node tests/contracts/override-policy.mjs && node tests/contracts/feature-preservation.mjs && node tests/contracts/no-direct-business-rpc.mjs && node tests/business-rules/core-filter-contract.mjs && node tests/business-rules/ai-core-contract.mjs && node tests/parity/adapter-parity.mjs && node tests/parity/core-boundary.mjs",
+    "contracts:test": "node tests/contracts/migration-history.mjs && node tests/contracts/no-hardcoded-runtime-sales-date.mjs && node tests/contracts/no-fake-commercial-fallback.mjs && node tests/contracts/core-analytics-boundary.mjs && node tests/contracts/override-policy.mjs && node tests/contracts/feature-preservation.mjs && node tests/contracts/no-direct-business-rpc.mjs && node tests/business-rules/core-filter-contract.mjs && node tests/business-rules/ai-core-contract.mjs && node tests/parity/adapter-parity.mjs && node tests/parity/core-boundary.mjs",
     "audit": "tsx scripts/merge-audit.ts"
   },
   "dependencies": {
