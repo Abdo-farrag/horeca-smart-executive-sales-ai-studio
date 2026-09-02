@@ -88,7 +88,7 @@ export const products = {
         productName: String(row.product_name ?? ''),
         productCategory: row.product_category ? String(row.product_category) : null,
         periodSales: toFiniteNumber(row.period_sales ?? 0, 'period_sales'),
-        periodQuantity: toFiniteNumber(row.period_quantity ?? 0, 'period_quantity'),
+        periodQuantity: toFiniteNumber(row.period_quantity ?? row.period_qty ?? 0, 'period_quantity'),
         periodOrders: toFiniteNumber(row.period_orders ?? 0, 'period_orders'),
         periodCustomers: toFiniteNumber(row.period_customers ?? 0, 'period_customers'),
         periodSalespeople: toFiniteNumber(row.period_salespeople ?? 0, 'period_salespeople'),
@@ -97,7 +97,7 @@ export const products = {
         firstOrderDate: row.first_order_date ? String(row.first_order_date) : null,
         lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
         lifetimeSales: toFiniteNumber(row.lifetime_sales ?? 0, 'lifetime_sales'),
-        lifetimeQuantity: toFiniteNumber(row.lifetime_quantity ?? 0, 'lifetime_quantity'),
+        lifetimeQuantity: toFiniteNumber(row.lifetime_quantity ?? row.lifetime_qty ?? 0, 'lifetime_quantity'),
         lifetimeOrders: toFiniteNumber(row.lifetime_orders ?? 0, 'lifetime_orders'),
         lifetimeCustomers: toFiniteNumber(row.lifetime_customers ?? 0, 'lifetime_customers'),
         lifetimeFirstOrderDate: row.lifetime_first_order_date ? String(row.lifetime_first_order_date) : (row.first_order_date ? String(row.first_order_date) : null),
@@ -433,4 +433,3 @@ export const products = {
     );
   },
 };
-
