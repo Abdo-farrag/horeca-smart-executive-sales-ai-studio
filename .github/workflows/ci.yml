@@ -20,8 +20,8 @@ jobs:
         run: npm ci || npm install
       - name: Run contract tests
         run: npm run contracts:test
-      - name: Run unit tests
-        run: npx vitest run
+      - name: Run offline unit tests
+        run: npx vitest run --exclude "**/phase6LiveReconciliation.test.ts"
       - name: Check TypeScript types
         run: npm run lint
       - name: Build monorepo packages and apps
