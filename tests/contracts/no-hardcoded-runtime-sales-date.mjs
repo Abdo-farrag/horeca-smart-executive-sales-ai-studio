@@ -1,27 +1,31 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
-const runtimeFiles = [
-  'src/hooks/useExecutiveDashboard.ts',
-  'src/services/executiveService.ts',
-  'src/views/ExecutiveDashboard.tsx',
-  'src/context/AppContext.tsx',
-  'src/types.ts',
-  'apps/lovable/src/hooks/useExecutiveDashboard.ts',
-  'apps/lovable/src/services/executiveService.ts',
-  'apps/lovable/src/views/ExecutiveDashboard.tsx',
-  'apps/studio/src/hooks/useExecutiveDashboard.ts',
-  'apps/studio/src/services/executiveService.ts',
-  'apps/studio/src/views/ExecutiveDashboard.tsx',
-].filter((file) => fs.existsSync(file));
+const roots = ['src', 'apps/lovable/src', 'apps/studio/src'];
+const runtimeFiles = [];
 
-assert.ok(runtimeFiles.length > 0, 'Expected runtime files to scan');
+for (const root of roots) {
+  for (const file of [
+    `${root}/App.tsx`,
+    `${root}/views/ExecutiveDashboardP0.tsx`,
+    `${root}/hooks/useExecutiveDashboardP0.ts`,
+    `${root}/services/executiveServiceP0.ts`,
+    `${root}/context/AppContext.tsx`,
+    `${root}/views/CustomerActionCenter.tsx`,
+    `${root}/views/SalesRepDailyActionCenter.tsx`,
+  ]) {
+    if (fs.existsSync(file)) runtimeFiles.push(file);
+  }
+}
+
+assert.ok(runtimeFiles.length > 0, 'Expected active runtime files to scan');
 
 const forbidden = [
   /INITIAL_LATEST_DATA_DATE\s*=\s*['"]20\d{2}-\d{2}-\d{2}['"]/,
   /(?:maxOrderDate|lastSuccessfulSyncAt)\s*:\s*[^\n]*\|\|\s*['"]20\d{2}-\d{2}-\d{2}/,
   /(?:maxOrderDate|lastSuccessfulSyncAt)\s*\?\?\s*['"]20\d{2}-\d{2}-\d{2}/,
   /(?:DEFAULT_START_DATE|DEFAULT_END_DATE)\s*=\s*['"]20\d{2}-\d{2}-\d{2}['"]/,
+  /asOfDate\s*:\s*['"]20\d{2}-\d{2}-\d{2}['"]/,
 ];
 
 const violations = [];
