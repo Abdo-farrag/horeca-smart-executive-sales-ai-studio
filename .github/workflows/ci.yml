@@ -21,7 +21,7 @@ jobs:
       - name: Run contract tests
         run: npm run contracts:test
       - name: Run offline unit tests
-        run: npx vitest run --exclude "**/phase6LiveReconciliation.test.ts"
+        run: npm run test:unit
       - name: Check TypeScript types
         run: npm run lint
       - name: Build monorepo packages and apps
