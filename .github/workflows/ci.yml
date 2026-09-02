@@ -18,8 +18,10 @@ jobs:
           cache: "npm"
       - name: Install dependencies
         run: npm ci || npm install
-      - name: Run contracts & tests
-        run: npm test
+      - name: Run contract tests
+        run: npm run contracts:test
+      - name: Run offline unit tests
+        run: npm run test:unit
       - name: Check TypeScript types
         run: npm run lint
       - name: Build monorepo packages and apps
