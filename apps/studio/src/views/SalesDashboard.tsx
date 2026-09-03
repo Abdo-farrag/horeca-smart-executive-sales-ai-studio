@@ -1,100 +1,68 @@
 import React from 'react';
-import { Target, FileSpreadsheet } from 'lucide-react';
-import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts';
+import { FileSpreadsheet, Target, BarChart3 } from 'lucide-react';
+import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, AreaChart, Area } from 'recharts';
+import { downloadCsv } from '@horeca-smart/core';
 import { useApp } from '../context/AppContext';
+import { useExecutiveDashboard } from '../hooks/useExecutiveDashboard';
+import { DataSourceStatus } from '../components/DataSourceStatus';
 
 export const SalesDashboard: React.FC = () => {
-  const { language, orders } = useApp();
+  const { language, filters } = useApp();
   const isAr = language === 'ar';
+  const { data, loading, status, error, refetch, lastFetchedAt } = useExecutiveDashboard(filters);
+
+  const handleExport = () => {
+    const rows = data.dailySalesTrend.map((row) => ({
+      date: row.date,
+      sales_egp: row.totalSales,
+      orders_count: row.ordersCount,
+      horeca_smart_sales_egp: row.horecaSales,
+      mas_sales_egp: row.masSales,
+      selected_company: filters.companyName || filters.company,
+      selected_salesperson: filters.salespersonName || filters.salesperson || '',
+      governorate: filters.governorateName || '',
+      area: filters.areaName || '',
+      customer: filters.customerName || '',
+      product: filters.productName || '',
+    }));
+    downloadCsv(`sales-report-${filters.effectiveStartDate || filters.dateRange.startDate}-${filters.effectiveEndDate || filters.dateRange.endDate}.csv`, rows);
+  };
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
-      
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
-          <h1 className="text-xl font-black text-slate-900 dark:text-white">
-            {isAr ? 'لوحة تحليلات المبيعات والإيرادات' : 'Sales & Revenue Intelligence'}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {isAr ? 'متابعة حركة المبيعات، نمو الأهداف الشهرية، ومتوسط قيمة الطلبيات' : 'Monthly sales trends, revenue targets, and AOV analysis'}
-          </p>
+          <h1 className="text-xl font-black text-slate-900 dark:text-white">{isAr ? 'لوحة تحليلات المبيعات والإيرادات' : 'Sales & Revenue Intelligence'}</h1>
+          <p className="text-xs text-slate-500 mt-1">{isAr ? 'مبيعات يومية موثقة حسب نفس نطاق وفلاتر الداشبورد التنفيذي' : 'Verified daily sales using the same scope and filters as Executive'}</p>
         </div>
-
-        <button
-          onClick={() => alert(isAr ? 'تم تصدير تقرير المبيعات بنجاح' : 'Sales report exported')}
-          className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-2 hover:bg-emerald-100 transition-colors"
-        >
+        <button onClick={handleExport} disabled={loading || !data.isLiveSupabaseData || data.dailySalesTrend.length === 0} className="px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-2 hover:bg-emerald-100 transition-colors disabled:opacity-50">
           <FileSpreadsheet className="w-4 h-4" />
-          <span>{isAr ? 'تصدير تقرير Excel' : 'Export Sales Excel'}</span>
+          <span>{isAr ? 'تصدير CSV' : 'Export CSV'}</span>
         </button>
       </div>
 
-      {/* Target vs Actual Revenue Trend Chart */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="font-bold text-sm text-slate-900 dark:text-white">
-              {isAr ? 'المبيعات الفعلية مقابل الهدف المستهدف (Target vs Actual)' : 'Actual Revenue vs Target Benchmark'}
-            </h3>
-            <p className="text-xs text-slate-500">{isAr ? 'مقارنة إنجاز الشهور السبعة الأولى لعام 2026' : 'First 7 months YTD target achievement'}</p>
-          </div>
-          <Target className="w-4 h-4 text-blue-600" />
-        </div>
+      <DataSourceStatus status={status} isAr={isAr} lastUpdated={lastFetchedAt} errorMessage={error} onRetry={refetch} />
 
-        <div className="h-72 w-full flex items-center justify-center">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            {isAr ? 'التفاصيل التشغيلية غير متاحة لهذا المؤشر حالياً' : 'Operational details currently unavailable for this metric'}
-          </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl border bg-white dark:bg-slate-900"><div className="text-xs text-slate-500">{isAr ? 'المبيعات' : 'Sales'}</div><div className="text-xl font-black">{data.totalSales.toLocaleString('ar-EG')} ج.م</div></div>
+        <div className="p-4 rounded-2xl border bg-white dark:bg-slate-900"><div className="text-xs text-slate-500">{isAr ? 'الطلبات' : 'Orders'}</div><div className="text-xl font-black">{data.confirmedOrdersCount.toLocaleString('ar-EG')}</div></div>
+        <div className="p-4 rounded-2xl border bg-white dark:bg-slate-900"><div className="text-xs text-slate-500">{isAr ? 'العملاء النشطون' : 'Active Customers'}</div><div className="text-xl font-black">{data.activeCustomersCount.toLocaleString('ar-EG')}</div></div>
+        <div className="p-4 rounded-2xl border bg-white dark:bg-slate-900"><div className="text-xs text-slate-500">{isAr ? 'متوسط الطلب' : 'AOV'}</div><div className="text-xl font-black">{data.averageOrderValue.toLocaleString('ar-EG')} ج.م</div></div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4"><div><h3 className="font-bold text-sm text-slate-900 dark:text-white">{isAr ? 'اتجاه المبيعات اليومية' : 'Daily Sales Trend'}</h3><p className="text-xs text-slate-500">{isAr ? 'حسب الفترة والفلاتر المحددة' : 'Selected period and active filters'}</p></div><BarChart3 className="w-4 h-4 text-blue-600" /></div>
+        <div className="h-72 w-full">
+          {data.dailySalesTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%"><AreaChart data={data.dailySalesTrend} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} /><XAxis dataKey="date" tick={{ fontSize: 10 }} /><YAxis tick={{ fontSize: 10 }} /><Tooltip formatter={(value: any) => [`${Number(value).toLocaleString('ar-EG')} ج.م`, isAr ? 'المبيعات' : 'Sales']} /><Area type="monotone" dataKey="totalSales" stroke="#2563eb" fill="#2563eb22" strokeWidth={3} /></AreaChart></ResponsiveContainer>
+          ) : <div className="h-full flex items-center justify-center text-xs text-slate-500">{loading ? (isAr ? 'جاري تحميل البيانات…' : 'Loading…') : (isAr ? 'لا توجد بيانات للفترة المحددة' : 'No data for selected period')}</div>}
         </div>
       </div>
 
-      {/* Recent Transactions Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
-        <h3 className="font-bold text-sm text-slate-900 dark:text-white mb-3">
-          {isAr ? 'سجل آخر طلبات التوريد المنجزة' : 'Recent Completed Fulfillment Orders'}
-        </h3>
-
-        {orders && orders.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right rtl:text-right ltr:text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-500 font-semibold border-b border-slate-200 dark:border-slate-700">
-                  <th className="p-3">{isAr ? 'رقم الطلب' : 'Order #'}</th>
-                  <th className="p-3">{isAr ? 'الشركة' : 'Company'}</th>
-                  <th className="p-3">{isAr ? 'العميل' : 'Client'}</th>
-                  <th className="p-3">{isAr ? 'المندوب' : 'Sales Rep'}</th>
-                  <th className="p-3">{isAr ? 'المنطقة' : 'Territory'}</th>
-                  <th className="p-3">{isAr ? 'المبلغ' : 'Amount'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {orders.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="p-3 font-mono text-blue-600 font-bold">{ord.orderNumber}</td>
-                    <td className="p-3 font-semibold">{ord.company}</td>
-                    <td className="p-3 font-bold text-slate-800 dark:text-slate-200">
-                      {isAr ? ord.customerNameAr : ord.customerNameEn}
-                    </td>
-                    <td className="p-3 text-slate-600 dark:text-slate-400">
-                      {isAr ? ord.salesRepNameAr : ord.salesRepNameEn}
-                    </td>
-                    <td className="p-3 text-slate-500">{ord.area}</td>
-                    <td className="p-3 font-extrabold text-slate-900 dark:text-white">
-                      {ord.amount.toLocaleString('ar-EG')} ج.م
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-8 text-center text-slate-500 dark:text-slate-400 font-medium text-xs bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800">
-            {isAr ? 'لا توجد بيانات تفصيلية متاحة حالياً' : 'No detailed transaction data currently available'}
-          </div>
-        )}
+        <div className="flex items-center gap-2 mb-2"><Target className="w-4 h-4 text-amber-600" /><h3 className="font-bold text-sm">{isAr ? 'الطلبات التفصيلية' : 'Order-level details'}</h3></div>
+        <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-800">{isAr ? 'قائمة الطلبات التفصيلية متوقفة مؤقتًا لحين توفير RPC آمن مخصص لها. لن يتم استخدام قراءة مباشرة أو أول 100 صف كبديل.' : 'Order-level list is pending a dedicated secure RPC. No direct table read or first-100-row fallback is used.'}</div>
       </div>
-
     </div>
   );
 };
