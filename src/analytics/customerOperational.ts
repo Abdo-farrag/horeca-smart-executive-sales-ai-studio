@@ -14,6 +14,15 @@ import type {
   CustomerActionCenterResult,
 } from './types';
 
+type OperationalBuyingFrequencyParams = CustomerBuyingFrequencyParams & {
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
+type OperationalRiskParams = CustomerRiskParams & {
+  asOfDate?: string | null;
+};
+
 function mapActionCenterRow(row: Record<string, unknown>): CustomerActionCenterResult {
   return {
     customerId: toFiniteNumber(row.customer_id, 'customer_id'),
@@ -39,7 +48,7 @@ function mapActionCenterRow(row: Record<string, unknown>): CustomerActionCenterR
 }
 
 export const customerOperational = {
-  async buyingFrequency(params: CustomerBuyingFrequencyParams): Promise<CustomerBuyingFrequencyResult[]> {
+  async buyingFrequency(params: OperationalBuyingFrequencyParams): Promise<CustomerBuyingFrequencyResult[]> {
     if (params.startDate) assertIsoDate(params.startDate, 'startDate');
     if (params.endDate) assertIsoDate(params.endDate, 'endDate');
     return callAnalyticsRpc(
@@ -66,7 +75,7 @@ export const customerOperational = {
     );
   },
 
-  async risk(params: CustomerRiskParams): Promise<CustomerRiskResult[]> {
+  async risk(params: OperationalRiskParams): Promise<CustomerRiskResult[]> {
     if (params.asOfDate) assertIsoDate(params.asOfDate, 'asOfDate');
     return callAnalyticsRpc(
       'analytics_customer_risk',
@@ -156,8 +165,6 @@ export const customerOperational = {
         mapActionCenterRow
       );
     } catch {
-      // Legacy RPC does not accept risk. Fetch the governed operational population,
-      // filter risk first, then paginate to avoid post-LIMIT risk loss.
       let rows = await callAnalyticsRpc(
         'analytics_customer_action_center',
         {
