@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { AccessProvider, useAccess } from './context/AccessContext';
+import { AccessGate } from './components/auth/AccessGate';
+import { canViewAppView, getDefaultViewForRole, type AppViewId } from './access/viewCapabilities';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { GlobalFilterBar } from './components/GlobalFilterBar';
@@ -21,10 +24,23 @@ import { LostCustomerDashboard } from './views/LostCustomerDashboard';
 import { SettingsView } from './views/SettingsView';
 
 const MainLayout: React.FC = () => {
-  const { currentView } = useApp();
+  const { currentView, setCurrentView } = useApp();
+  const { profile } = useAccess();
+
+  if (!profile) return null;
+
+  const requestedView = currentView as AppViewId;
+  const allowed = canViewAppView(profile.role, requestedView);
+  const effectiveView: AppViewId = allowed ? requestedView : getDefaultViewForRole(profile.role);
+
+  useEffect(() => {
+    if (!allowed && currentView !== effectiveView) {
+      setCurrentView(effectiveView);
+    }
+  }, [allowed, currentView, effectiveView, setCurrentView]);
 
   const renderCurrentView = () => {
-    switch (currentView) {
+    switch (effectiveView) {
       case 'executive':
         return <ExecutiveDashboard />;
       case 'sales':
@@ -48,30 +64,20 @@ const MainLayout: React.FC = () => {
       case 'settings':
         return <SettingsView />;
       default:
-        return <ExecutiveDashboard />;
+        return null;
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
-      {/* Top Fixed Header */}
       <Header />
-
-      {/* Global Filter Bar */}
       <GlobalFilterBar />
-
-      {/* Main Body Shell (Sidebar + Dashboard Canvas) */}
       <div className="flex-1 max-w-[1440px] w-full mx-auto flex">
-        {/* Left Sidebar (RTL adjusts to Right) */}
         <Sidebar />
-
-        {/* Dynamic View Canvas */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-hidden">
           {renderCurrentView()}
         </main>
       </div>
-
-      {/* Overlays & Drawers */}
       <AiAssistantPanel />
       <DrillDownModal />
       <EntityDetailModals />
@@ -81,8 +87,12 @@ const MainLayout: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainLayout />
-    </AppProvider>
+    <AccessProvider>
+      <AccessGate>
+        <AppProvider>
+          <MainLayout />
+        </AppProvider>
+      </AccessGate>
+    </AccessProvider>
   );
 }
