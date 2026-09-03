@@ -13,16 +13,19 @@ expect(/getPreviousMonthRange\(referenceDate: Date \| string = new Date\(\)\)/.t
 const actionCenter = read('src/views/CustomerActionCenter.tsx');
 expect(actionCenter.includes("selectedCompany === 'Horeca Smart' ? 2 : selectedCompany === 'MAS' ? 1"), 'Action Center company IDs must map Horeca Smart=2 and MAS=1');
 
-const customers = read('src/analytics/customers.ts');
-expect(customers.includes('row.high_priority_customers'), 'portfolio summary mapper must read high_priority_customers');
-expect(customers.includes('row.medium_priority_customers'), 'portfolio summary mapper must read medium_priority_customers');
-expect(customers.includes('row.low_priority_customers'), 'portfolio summary mapper must read low_priority_customers');
-expect(customers.includes('row.share_pct'), 'risk distribution mapper must read share_pct');
-expect(customers.includes('row.median_days_between_orders'), 'customer action/risk mappers must read median_days_between_orders');
+const customerOperational = read('src/analytics/customerOperational.ts');
+expect(customerOperational.includes('row.high_priority_customers'), 'portfolio summary mapper must read high_priority_customers');
+expect(customerOperational.includes('row.medium_priority_customers'), 'portfolio summary mapper must read medium_priority_customers');
+expect(customerOperational.includes('row.low_priority_customers'), 'portfolio summary mapper must read low_priority_customers');
+expect(customerOperational.includes('row.share_pct'), 'risk distribution mapper must read share_pct');
+expect(customerOperational.includes('row.median_days_between_orders'), 'customer action/risk mappers must read median_days_between_orders');
+expect(customerOperational.includes('p_start_date: params.startDate'), 'buying frequency RPC must receive start date');
+expect(customerOperational.includes('p_end_date: params.endDate'), 'buying frequency RPC must receive end date');
+expect(customerOperational.includes('p_as_of_date: params.asOfDate'), 'customer risk RPC must receive as-of date');
 
 const customerService = read('src/services/customerService.ts');
-expect(customerService.includes('startDate: filters.effectiveStartDate'), 'buying-frequency service must pass effectiveStartDate');
-expect(customerService.includes('endDate: filters.effectiveEndDate'), 'buying-frequency service must pass effectiveEndDate');
+expect(customerService.includes('startDate: effectiveStartDate'), 'buying-frequency service must pass effectiveStartDate');
+expect(customerService.includes('endDate: effectiveEndDate'), 'buying-frequency service must pass effectiveEndDate');
 
 const productDashboard = read('src/views/ProductDashboard.tsx');
 expect(!/totalOrders\s*=\s*data\.reduce\([^\n]*ordersCount/.test(productDashboard), 'Product Dashboard must not sum per-SKU order counts as distinct total orders');
