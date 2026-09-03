@@ -60,14 +60,6 @@ export interface CustomerActionOption {
   recoveryOpportunity: number;
 }
 
-// Historical UI code used the inverse company-id convention in one path.
-// Production Odoo/Supabase identity is canonical: MAS=1, Horeca Smart=2.
-function normalizeLegacySalespeopleCompanyId(companyId?: number | null): number | null {
-  if (companyId === 1) return 2;
-  if (companyId === 2) return 1;
-  return companyId ?? null;
-}
-
 export const filters = {
   async companies(params: { startDate: string; endDate: string }): Promise<CompanyOption[]> {
     assertDateRange(params.startDate, params.endDate);
@@ -98,7 +90,7 @@ export const filters = {
       {
         p_start_date: params.startDate,
         p_end_date: params.endDate,
-        p_company_id: normalizeLegacySalespeopleCompanyId(params.companyId),
+        p_company_id: params.companyId ?? null,
       },
       (row) => ({
         optionKey: String(row.option_key ?? ''),

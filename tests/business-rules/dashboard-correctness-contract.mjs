@@ -10,10 +10,11 @@ expect(!dateCore.includes("'2026-08-10'"), 'date filters must not default to the
 expect(/getCurrentMonthRange\(referenceDate: Date \| string = new Date\(\)\)/.test(dateCore), 'current-month helper must default to runtime current date');
 expect(/getPreviousMonthRange\(referenceDate: Date \| string = new Date\(\)\)/.test(dateCore), 'previous-month helper must default to runtime current date');
 
+const actionCenter = read('src/views/CustomerActionCenter.tsx');
+expect(actionCenter.includes("selectedCompany === 'Horeca Smart' ? 2 : selectedCompany === 'MAS' ? 1"), 'Action Center company IDs must map Horeca Smart=2 and MAS=1');
+
 const filtersAdapter = read('src/analytics/filters.ts');
-expect(filtersAdapter.includes('if (companyId === 1) return 2;'), 'legacy salesperson-filter company id 1 must normalize to Horeca Smart id 2');
-expect(filtersAdapter.includes('if (companyId === 2) return 1;'), 'legacy salesperson-filter company id 2 must normalize to MAS id 1');
-expect(filtersAdapter.includes('p_company_id: normalizeLegacySalespeopleCompanyId(params.companyId)'), 'salespeople filter RPC must use canonical company-id normalization');
+expect(filtersAdapter.includes('p_company_id: params.companyId ?? null'), 'salespeople filter RPC must preserve canonical company IDs');
 
 const customerOperational = read('src/analytics/customerOperational.ts');
 expect(customerOperational.includes('row.high_priority_customers'), 'portfolio summary mapper must read high_priority_customers');
