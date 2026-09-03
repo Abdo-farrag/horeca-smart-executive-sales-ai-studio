@@ -1,0 +1,31 @@
+name: One Shot Correctness Fix
+on:
+  push:
+    branches: [p1/access-control-design-2026-09-03]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: ${{ !startsWith(github.event.head_commit.message, 'fix(one-shot):') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: p1/access-control-design-2026-09-03
+          fetch-depth: 0
+      - name: Apply exact corrections
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/views/CustomerActionCenter.tsx'); s=p.read_text(); a="const companyId = selectedCompany === 'Horeca Smart' ? 1 : selectedCompany === 'MAS' ? 2 : undefined;"; b="const companyId = selectedCompany === 'Horeca Smart' ? 2 : selectedCompany === 'MAS' ? 1 : undefined;"; assert a in s; p.write_text(s.replace(a,b,1))
+          p=Path('src/analytics/filters.ts'); s=p.read_text(); h="// Historical UI code used the inverse company-id convention in one path.\n// Production Odoo/Supabase identity is canonical: MAS=1, Horeca Smart=2.\nfunction normalizeLegacySalespeopleCompanyId(companyId?: number | null): number | null {\n  if (companyId === 1) return 2;\n  if (companyId === 2) return 1;\n  return companyId ?? null;\n}\n\n"; assert h in s; s=s.replace(h,'',1); a='p_company_id: normalizeLegacySalespeopleCompanyId(params.companyId),'; assert a in s; p.write_text(s.replace(a,'p_company_id: params.companyId ?? null,',1))
+          p=Path('tests/business-rules/dashboard-correctness-contract.mjs'); s=p.read_text(); a="const filtersAdapter = read('src/analytics/filters.ts');\nexpect(filtersAdapter.includes('if (companyId === 1) return 2;'), 'legacy salesperson-filter company id 1 must normalize to Horeca Smart id 2');\nexpect(filtersAdapter.includes('if (companyId === 2) return 1;'), 'legacy salesperson-filter company id 2 must normalize to MAS id 1');\nexpect(filtersAdapter.includes('p_company_id: normalizeLegacySalespeopleCompanyId(params.companyId)'), 'salespeople filter RPC must use canonical company-id normalization');\n"; b="const actionCenter = read('src/views/CustomerActionCenter.tsx');\nexpect(actionCenter.includes(\"selectedCompany === 'Horeca Smart' ? 2 : selectedCompany === 'MAS' ? 1\"), 'Action Center company IDs must map Horeca Smart=2 and MAS=1');\n\nconst filtersAdapter = read('src/analytics/filters.ts');\nexpect(filtersAdapter.includes('p_company_id: params.companyId ?? null'), 'salespeople filter RPC must preserve canonical company IDs');\n"; assert a in s; p.write_text(s.replace(a,b,1))
+          PY
+      - name: Commit exact corrections
+        run: |
+          rm .github/workflows/one-shot-correctness-fix.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(one-shot): correct company mapping at Action Center boundary"
+          git push origin HEAD:p1/access-control-design-2026-09-03
