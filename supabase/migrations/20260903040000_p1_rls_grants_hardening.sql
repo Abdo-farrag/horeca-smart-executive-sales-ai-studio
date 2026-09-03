@@ -1,11 +1,15 @@
--- P1 Access Control: final direct-execute hardening for legacy analytics RPCs.
--- IMPORTANT ORDERING GATE:
--- Do NOT apply this migration until all secure application entrypoints and role QA are ready.
--- Once applied, browser users must not be able to invoke legacy analytics_* functions directly.
+-- P1 Access Control: production-safe browser hardening for legacy analytics RPCs.
+-- Release-candidate rule:
+--   * unauthenticated (anon) callers must not execute commercial analytics RPCs;
+--   * authenticated callers retain their existing EXECUTE grants until every
+--     application-facing analytics RPC is replaced by a fully scoped secure entrypoint.
+--
+-- This deliberately avoids revoking authenticated here. Removing authenticated
+-- EXECUTE before the scoped replacements exist would break the signed-in dashboard.
 
 begin;
 
--- Revoke every overload in the legacy analytics_* family from browser roles.
+-- Revoke every overload in the analytics_* family from the unauthenticated role.
 -- proname like 'analytics\_%' intentionally escapes '_' so only the analytics_ prefix matches.
 do $$
 declare
@@ -19,21 +23,14 @@ begin
       and p.proname like 'analytics\_%' escape '\'
   loop
     execute format('revoke execute on function %s from anon', r.function_signature);
-    execute format('revoke execute on function %s from authenticated', r.function_signature);
   end loop;
 end;
 $$;
 
--- SECURE_APP_ENTRYPOINTS_AFTER_LEGACY_REVOKE
--- Secure P1 entrypoints are granted explicitly in their defining migrations only.
--- Authorization helpers remain authenticated-only and are not named analytics_*:
---   current_access_profile()
---   authorized_company_ids()
---   authorized_salesperson_ids()
---   can_view_executive()
---   can_manage_users()
--- Application-facing scoped analytics RPC grants will be listed explicitly below
--- once their definitions are complete and reviewed. Never add a blanket grant on
--- the legacy analytics_* family.
+-- Do not grant analytics_* to anon anywhere in P1.
+-- Authenticated access remains unchanged for this release candidate so the current
+-- application can continue to call its reviewed RPC surface after login.
+-- A later migration must move each screen to DB-scoped entrypoints and only then
+-- revoke authenticated EXECUTE from the legacy analytics_* family.
 
 commit;
