@@ -114,6 +114,17 @@ Required separation:
 - Sales performance / ranking = salesperson recorded on the order
 - Portfolio ownership / retention / transfer = primary/current/previous salesperson relationship
 
+Filter-list RPC `analytics_filter_salespeople` reconciles to order-level salesperson numbers for the tested MTD scope, so it is a better attribution reference for sales performance than the current monthly portfolio performance view.
+
+## Daily sales trend
+
+Raw vs `analytics_sales_daily_summary_v2` reconciles exactly for the audited MTD window:
+- 2026-09-01: EGP 1,478,392.78 / 57 orders
+- 2026-09-02: EGP 3,632,701.89 / 65 orders
+- 2026-09-03: EGP 108,221.12 / 7 orders
+
+Status: PASS for total daily sales and order counts.
+
 ## Company split
 
 Raw 2026-09-01..03:
@@ -121,15 +132,40 @@ Raw 2026-09-01..03:
 - Horeca Smart: 93 orders, 87 customers, EGP 1,496,622.01
 - Total: EGP 5,219,315.79
 
-Revenue split is reconcilable to Executive total.
+### Finding K-004 — Critical: company revenue fields missing from daily RPC mapping
 
-### Finding K-004 — Medium
+`analytics_sales_daily_summary_v2` currently returns `sales_date`, `total_sales`, `confirmed_orders`, `active_customers`, and `average_order_value`. It does not return `horeca_sales` or `mas_sales`.
 
-`executiveService.ts` constructs company breakdown `ordersCount` as hard-coded `0` for both companies. Revenue share is useful, but order counts in this object are not valid and must not be exposed as real data.
+The SDK mapper reads `row.horeca_sales ?? 0` and `row.mas_sales ?? 0`. `executiveService.ts` then sums those mapped fields to construct the company donut, causing company revenues to resolve to zero even though the total daily trend is correct.
+
+Required correction: source company split from a dedicated company aggregation RPC or extend the daily RPC contract to return explicit company totals. Do not infer company share from missing fields.
+
+### Finding K-005 — Medium
+
+`executiveService.ts` constructs company breakdown `ordersCount` as hard-coded `0` for both companies. Revenue share is useful only after K-004 is fixed, and company order counts must come from live aggregation rather than zero placeholders.
 
 ## Top customers
 
 Top-customer RPC for 2026-09-01..03 reconciles with direct order aggregation for the sampled top 10 customers. Status: PASS for revenue/order/AOV ranking sample.
+
+## Product filter
+
+A sample audit using product `8551` initially showed product-line revenue above the Executive result. Drill-down confirmed the difference came from product lines whose orders are not part of the canonical `sales_orders_odoo18` commercial universe, including a large Horeca Smart -> MAS transaction.
+
+When product lines are restricted to orders present in the canonical commercial sales universe, the Executive RPC reconciles:
+- EGP 537,631.22
+- 6 orders
+
+Status: PASS for the tested product filter under canonical commercial-order semantics.
+
+## Tested base filters
+
+For `2026-09-01..03`, Executive KPI RPC reconciled exactly to raw sales for:
+- Company = MAS: EGP 3,722,693.78 / 36 orders / 27 customers
+- Salesperson = Haddil Haron: EGP 2,815,944.30 / 32 orders / 24 customers
+- Customer = 30543: EGP 433,815.78 / 3 orders / 1 customer
+
+Status: PASS for Company, Salesperson, and Customer base KPI filtering in the tested cases.
 
 ## Current Executive KPI cards
 
@@ -144,14 +180,13 @@ Orders, customers and AOV currently carry `previousValue = 0` and `growthPercent
 
 ## Next audit steps
 
-1. Daily sales trend reconciliation
-2. Company split and percentage reconciliation
-3. Filter option correctness and cascading behavior
-4. Current/previous/custom date period behavior
-5. Company filter
-6. Salesperson filter
-7. Customer filter
-8. Governorate/area filters
-9. Product filter
-10. Executive top reps and top customers reconciliation under each scope
-11. Define final Executive KPI dictionary
+1. Current/previous/custom date period behavior
+2. Company filter option list and cascading validation
+3. Salesperson filter cascading behavior
+4. Customer filter search/list consistency
+5. Governorate/area filters and geography quality
+6. Product filter across company/salesperson scopes
+7. Executive top reps correction to order attribution
+8. Retention latest-completed-month rule
+9. Define final Executive KPI dictionary and comparison rules
+10. Implement fixes only after audit findings are accepted
