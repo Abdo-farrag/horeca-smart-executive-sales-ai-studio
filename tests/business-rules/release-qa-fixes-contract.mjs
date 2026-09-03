@@ -9,7 +9,11 @@ assert.match(appContext, /latestAvailableDataDate:\s*prev\.latestAvailableDataDa
 
 const salesRepService = read('src/services/salesRepService.ts');
 for (const key of ['governorateCode', 'areaCode', 'customerId', 'productId']) {
-  assert.match(salesRepService, new RegExp(`${key}:`), `Sales Rep summary must propagate ${key}`);
+  assert.match(
+    salesRepService,
+    new RegExp(`${key}\\s*(?::|[,}])`),
+    `Sales Rep summary must propagate ${key}`,
+  );
 }
 assert.match(salesRepService, /ADVANCED_FILTERS_UNSUPPORTED/, 'Sales Rep 360 detail RPCs must fail visibly instead of silently dropping unsupported advanced filters');
 
