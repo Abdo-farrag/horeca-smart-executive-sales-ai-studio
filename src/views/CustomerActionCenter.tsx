@@ -88,7 +88,7 @@ export const CustomerActionCenter: React.FC = () => {
     let isMounted = true;
     async function loadSalespeople() {
       try {
-        const companyId = selectedCompany === 'Horeca Smart' ? 1 : selectedCompany === 'MAS' ? 2 : undefined;
+        const companyId = selectedCompany === 'Horeca Smart' ? 2 : selectedCompany === 'MAS' ? 1 : undefined;
         const res = await analytics.filters.salespeople({
           startDate: filters.effectiveStartDate || '2026-01-01',
           endDate: asOfDate || filters.effectiveEndDate || '2026-12-31',

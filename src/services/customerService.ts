@@ -58,8 +58,13 @@ export async function fetchCustomerBuyingFrequency(
   filters: GlobalFilterState
 ): Promise<{ data: CustomerBuyingFrequencyResult | null; error: string | null }> {
   try {
-    const companyName = filters.company === 'All' ? null : filters.company;
-    const res = await analytics.customers.buyingFrequency({ customerId, companyName });
+    const { companyName, effectiveStartDate, effectiveEndDate } = getEffectiveFilterParams(filters);
+    const res = await analytics.customers.buyingFrequency({
+      customerId,
+      companyName,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
+    });
     return { data: res[0] || null, error: null };
   } catch (err: any) {
     console.error('Error fetching customer buying frequency:', err);
@@ -73,8 +78,8 @@ export async function fetchCustomerFavoriteProducts(
   limit: number = 20
 ): Promise<{ data: CustomerFavoriteProductsResult[]; error: string | null }> {
   try {
-    const startDate = filters.dateRange?.startDate ?? null;
-    const endDate = filters.dateRange?.endDate ?? null;
+    const startDate = filters.effectiveStartDate ?? filters.dateRange?.startDate ?? null;
+    const endDate = filters.effectiveEndDate ?? filters.dateRange?.endDate ?? null;
     const companyName = filters.company === 'All' ? null : filters.company;
     const data = await analytics.customers.favoriteProducts({ customerId, startDate, endDate, companyName, limit });
     return { data, error: null };
@@ -117,8 +122,8 @@ export async function fetchCustomerProductDropoff(
   filters: GlobalFilterState
 ): Promise<{ data: CustomerProductDropoffResult[]; error: string | null }> {
   try {
-    const startDate = filters.dateRange?.startDate ?? null;
-    const endDate = filters.dateRange?.endDate ?? null;
+    const startDate = filters.effectiveStartDate ?? filters.dateRange?.startDate ?? null;
+    const endDate = filters.effectiveEndDate ?? filters.dateRange?.endDate ?? null;
     const companyName = filters.company === 'All' ? null : filters.company;
     const data = await analytics.customers.productDropoff({ customerId, startDate, endDate, companyName });
     return { data, error: null };
@@ -134,8 +139,8 @@ export async function fetchCustomerCrossSellCandidates(
   limit: number = 20
 ): Promise<{ data: CustomerCrossSellCandidatesResult[]; error: string | null }> {
   try {
-    const startDate = filters.dateRange?.startDate ?? null;
-    const endDate = filters.dateRange?.endDate ?? null;
+    const startDate = filters.effectiveStartDate ?? filters.dateRange?.startDate ?? null;
+    const endDate = filters.effectiveEndDate ?? filters.dateRange?.endDate ?? null;
     const companyName = filters.company === 'All' ? null : filters.company;
     const data = await analytics.customers.crossSellCandidates({ customerId, startDate, endDate, companyName, limit });
     return { data, error: null };
@@ -230,4 +235,3 @@ export async function fetchCustomerRecoveryOpportunities(options: {
     return { data: [], error: err?.message || 'Error fetching recovery opportunities' };
   }
 }
-

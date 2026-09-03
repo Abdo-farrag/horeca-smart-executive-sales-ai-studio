@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import {
   sanitizeExecutiveContext,
@@ -23,6 +24,19 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
+function getBearerToken(authorization: string | undefined): string | null {
+  if (!authorization) return null;
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
+function getSupabaseServerConfig(): { url: string; anonKey: string } | null {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+}
+
 // Health check endpoints for Cloud Run and monitoring probes
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -37,8 +51,45 @@ app.post("/api/ai/chat", async (req, res) => {
   const startTime = Date.now();
   let contextMode: AiContextMode = "AGGREGATED";
   let intent: AiQueryIntent | undefined = undefined;
+  let authenticatedRole: string | null = null;
 
   try {
+    // 0. Authentication & trusted access-profile gate.
+    const authorization = req.get("authorization");
+    const accessToken = getBearerToken(authorization);
+    if (!accessToken) {
+      return res.status(401).json({
+        error: { code: "AUTH_REQUIRED", message: "A valid Supabase bearer token is required." },
+      });
+    }
+
+    const supabaseConfig = getSupabaseServerConfig();
+    if (!supabaseConfig) {
+      return res.status(500).json({
+        error: { code: "CONFIG_ERROR", message: "Supabase server authentication is not configured." },
+      });
+    }
+
+    const authClient = createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    });
+
+    const { data: verifiedUser, error: userError } = await authClient.auth.getUser(accessToken);
+    if (userError || !verifiedUser.user) {
+      return res.status(401).json({
+        error: { code: "AUTH_INVALID", message: "The Supabase session is invalid or expired." },
+      });
+    }
+
+    const { data: accessProfile, error: accessError } = await authClient.rpc("current_access_profile");
+    if (accessError || !accessProfile || typeof accessProfile !== "object") {
+      return res.status(403).json({
+        error: { code: "ACCESS_DENIED", message: "No active commercial access profile is available." },
+      });
+    }
+    authenticatedRole = String((accessProfile as Record<string, unknown>).role ?? "");
+
     const {
       message,
       history,
@@ -74,6 +125,7 @@ app.post("/api/ai/chat", async (req, res) => {
         JSON.stringify({
           intent,
           contextMode,
+          role: authenticatedRole,
           aggregatePayloadBytes: 0,
           drillDownPayloadBytes: 0,
           historyMessageCount: Array.isArray(history) ? history.length : 0,
@@ -98,6 +150,7 @@ app.post("/api/ai/chat", async (req, res) => {
         JSON.stringify({
           intent,
           contextMode,
+          role: authenticatedRole,
           aggregatePayloadBytes: 0,
           drillDownPayloadBytes: 0,
           historyMessageCount: Array.isArray(history) ? history.length : 0,
@@ -262,6 +315,7 @@ ${sanitizedDrillDown ? `ExecutiveDrillDownContext:\n${JSON.stringify(sanitizedDr
       JSON.stringify({
         intent: intent || "GENERAL",
         contextMode,
+        role: authenticatedRole,
         aggregatePayloadBytes: aggregateBytes,
         drillDownPayloadBytes: drillDownBytes,
         historyMessageCount: validHistory.length,
@@ -342,4 +396,3 @@ async function startServer() {
 }
 
 startServer();
-
