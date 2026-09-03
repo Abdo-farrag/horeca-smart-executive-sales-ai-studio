@@ -43,9 +43,13 @@ const aiClient = read('src/services/aiChatService.ts');
 assert.match(aiClient, /auth\.getSession\(\)/, 'AI client must read the active Supabase session');
 assert.match(aiClient, /Authorization[^\n]*Bearer/, 'AI client must send a Bearer token');
 
-const server = read('server.ts');
-assert.match(server, /AI_SCOPE_NOT_READY|authenticatedRole/, 'AI server must enforce the authenticated access profile');
-assert.match(server, /status\(503\)/, 'Missing AI provider configuration must fail as service unavailable');
-assert.match(server, /AI_SERVICE_UNAVAILABLE/, 'Missing AI provider configuration must use a clear AI service unavailable code');
+for (const path of ['server.ts', 'apps/studio/server.ts']) {
+  const server = read(path);
+  assert.match(server, /auth\.getUser\(/, `${path} must validate the bearer token with Supabase Auth`);
+  assert.match(server, /current_access_profile/, `${path} must load the current access profile`);
+  assert.match(server, /AI_SCOPE_NOT_READY|authenticatedRole/, `${path} must enforce the authenticated access profile`);
+  assert.match(server, /status\(503\)/, `${path} must return service unavailable when the AI provider is missing`);
+  assert.match(server, /AI_SERVICE_UNAVAILABLE/, `${path} must use a clear AI service unavailable code`);
+}
 
 console.log('release QA fixes contract passed');
