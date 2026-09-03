@@ -167,6 +167,91 @@ For `2026-09-01..03`, Executive KPI RPC reconciled exactly to raw sales for:
 
 Status: PASS for Company, Salesperson, and Customer base KPI filtering in the tested cases.
 
+## Date range validation
+
+### Previous month — PASS
+For `2026-08-01..2026-08-31`:
+- Revenue: EGP 69,750,962.90
+- Orders: 1,602
+- Unique customers: 519
+- AOV: EGP 43,539.93
+
+Raw source and `analytics_sales_executive_kpis_v2` matched with zero variance.
+
+### Custom range — PASS
+Sample `2026-08-10..2026-08-20`:
+- Revenue: EGP 26,429,495.80
+- Orders: 556
+- Unique customers: 339
+- AOV: EGP 47,535.06
+
+Raw source and RPC matched with zero variance.
+
+Conclusion: date-range filtering itself is correct. The critical date issue is default-current-month resolution and comparison semantics, not range execution.
+
+## Filter option and cascading validation
+
+### Company options — PASS
+For `2026-09-01..03`, the company list correctly returns only:
+- MAS
+- Horeca Smart
+
+### Salesperson cascade — PASS
+All-company scope returns 9 active order-level salespeople in the audited period.
+Selecting MAS narrows the list to 2:
+- Amgad Ahmed
+- Haddil Haron
+
+Selecting Horeca Smart narrows the list to 7:
+- Donia Khaled
+- Hager Ahmed
+- Lames Magdy
+- Mona Mohamed
+- Naden Amgad
+- Reham Maher
+- Shorouk khaled
+
+The filter values reconcile to order-level sales attribution.
+
+### Customer cascade — PASS
+Revenue represented by customer options reconciles to the Executive commercial universe:
+- All customers: 114 customers / EGP 5,219,315.79
+- MAS: 27 customers / EGP 3,722,693.78
+- MAS + Haddil Haron: 24 customers / EGP 2,815,944.30
+
+### Product cascade — PASS
+Product-option revenue reconciles to the same commercial universe:
+- All products: 228 products / EGP 5,219,315.79
+- MAS + Haddil Haron: 44 products / EGP 2,815,944.30
+
+This confirms that product and customer cascades remain financially closed to the selected order-level scope in the audited samples.
+
+## Geography / territory filter quality
+
+The geography filter functions return usable results, but the underlying mapping is not complete enough to treat area-level management reporting as final.
+
+For `2026-09-01..03`:
+- Sales customers: 114
+- Governorate mapped: 93 / 81.58%
+- Area mapped: 68 / 59.65%
+- High-confidence area: 58 / 50.88%
+- Needs review: 51 customers
+
+Governorate distribution includes:
+- Cairo: 68 customers / 76 orders / EGP 2,323,832
+- Unknown: 21 customers / 23 orders / EGP 1,464,057
+- Qalyubia: 8 customers / 13 orders / EGP 1,035,484
+- Giza: 17 customers / 17 orders / EGP 395,943
+
+### Finding F-001 — Medium: geography is filterable but not management-grade yet
+
+Governorate filters can be used with a visible data-quality warning. Area-level KPIs should remain explicitly provisional until mapping coverage and confidence improve.
+
+Recommended release rule:
+- Governorate reporting: allowed with coverage badge
+- Area reporting: allowed only with quality badge and `high_confidence_only` default
+- Do not present missing/unknown geography as zero business activity
+
 ## Current Executive KPI cards
 
 Current KPI cards are:
@@ -178,15 +263,41 @@ Current KPI cards are:
 
 Orders, customers and AOV currently carry `previousValue = 0` and `growthPercent = 0`; these should not visually imply a measured 0% change. Prefer null/unavailable until valid comparison values are calculated.
 
+## Executive audit status summary
+
+PASS:
+- Revenue
+- Orders
+- Unique customers
+- AOV
+- Daily total trend
+- Previous-month range execution
+- Custom date range execution
+- Company base filter
+- Salesperson base filter
+- Customer filter
+- Product filter under canonical commercial semantics
+- Company -> salesperson cascade
+- Company/salesperson -> customer cascade
+- Company/salesperson -> product cascade
+- Top customers sampled reconciliation
+
+FIX REQUIRED:
+- Dynamic Cairo current-month default
+- MTD previous-month comparison definition
+- Partial-month retention/lost handling
+- Sales Rep performance attribution vs portfolio ownership
+- Company split data source/mapping
+- Company split order counts
+- Zero placeholders for unavailable KPI comparisons
+- Geography quality visibility and release rules
+
 ## Next audit steps
 
-1. Current/previous/custom date period behavior
-2. Company filter option list and cascading validation
-3. Salesperson filter cascading behavior
-4. Customer filter search/list consistency
-5. Governorate/area filters and geography quality
-6. Product filter across company/salesperson scopes
-7. Executive top reps correction to order attribution
-8. Retention latest-completed-month rule
-9. Define final Executive KPI dictionary and comparison rules
-10. Implement fixes only after audit findings are accepted
+1. Define final Executive KPI dictionary and comparison rules
+2. Define latest-completed-month retention behavior for each period mode
+3. Define order-sales vs portfolio-ownership labels across all screens
+4. Review every displayed Executive section for misleading zero/null semantics
+5. Review top reps and retention cards under Company and Salesperson filters
+6. Review Sales Rep 360 using the same definitions
+7. Implement fixes only after audit rules are accepted
