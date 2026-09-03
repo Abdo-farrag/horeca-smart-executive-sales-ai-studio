@@ -54,6 +54,7 @@ export const ProductDashboard: React.FC = () => {
     reconciliation,
     reconciliationLoading,
     reconciliationError,
+    scopeKpis,
     refetch
   } = useProductDashboard(filters, productDashboardOptions);
 
@@ -89,13 +90,14 @@ export const ProductDashboard: React.FC = () => {
     return sortedData.slice(start, start + itemsPerPage);
   }, [sortedData, page, itemsPerPage]);
 
-  // Live KPI totals derived strictly from returned live rows
+  // Product sales/quantity are additive by SKU. Orders/customers are distinct at order scope,
+  // so they come from the canonical Executive KPI RPC for the exact same filters.
   const kpis = useMemo(() => {
     const productsCount = data.length;
     const totalSales = data.reduce((sum, p) => sum + (p.salesValue || 0), 0);
     const totalQty = data.reduce((sum, p) => sum + (p.quantitySold || 0), 0);
-    const totalOrders = data.reduce((sum, p) => sum + (p.ordersCount || 0), 0);
-    const totalCustomers = data.reduce((sum, p) => sum + (p.uniqueCustomers || 0), 0);
+    const totalOrders = scopeKpis?.ordersCount ?? 0;
+    const totalCustomers = scopeKpis?.activeCustomers ?? 0;
     const avgSalesPerProduct = productsCount > 0 ? totalSales / productsCount : 0;
 
     return {
@@ -106,7 +108,7 @@ export const ProductDashboard: React.FC = () => {
       totalCustomers,
       avgSalesPerProduct,
     };
-  }, [data]);
+  }, [data, scopeKpis]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
