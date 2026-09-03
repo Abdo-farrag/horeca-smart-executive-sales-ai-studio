@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { clearAnalyticsClientCache } from '../analytics/client';
 import {
   getCurrentAccessProfile,
   getCurrentSession,
@@ -30,6 +31,7 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [error, setError] = useState<string | null>(null);
 
   const resolveProfile = useCallback(async (activeSession: Session) => {
+    clearAnalyticsClientCache();
     setSession(activeSession);
     setUser(activeSession.user);
     try {
@@ -51,6 +53,7 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const clearSession = useCallback(() => {
+    clearAnalyticsClientCache();
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -82,6 +85,7 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!active) return;
+      clearAnalyticsClientCache();
       if (!nextSession) {
         clearSession();
         return;
@@ -96,6 +100,7 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [clearSession, resolveProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    clearAnalyticsClientCache();
     setStatus('loading');
     setError(null);
     try {
@@ -117,6 +122,7 @@ export const AccessProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [clearSession]);
 
   const refreshProfile = useCallback(async () => {
+    clearAnalyticsClientCache();
     if (!session) {
       clearSession();
       return;
