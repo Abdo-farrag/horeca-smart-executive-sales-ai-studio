@@ -90,6 +90,15 @@ app.post("/api/ai/chat", async (req, res) => {
     }
     authenticatedRole = String((accessProfile as Record<string, unknown>).role ?? "");
 
+    if (!['admin', 'manager'].includes(authenticatedRole)) {
+      return res.status(403).json({
+        error: {
+          code: "AI_SCOPE_NOT_READY",
+          message: "AI access for team/rep-scoped roles is disabled until server-side scoped context is available.",
+        },
+      });
+    }
+
     const {
       message,
       history,
@@ -202,10 +211,10 @@ app.post("/api/ai/chat", async (req, res) => {
     // 4. API Key Verification
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({
+      return res.status(503).json({
         error: {
-          code: "CONFIG_ERROR",
-          message: "GEMINI_API_KEY is not configured on the server.",
+          code: "AI_SERVICE_UNAVAILABLE",
+          message: "The AI provider is not configured on the server.",
         },
       });
     }

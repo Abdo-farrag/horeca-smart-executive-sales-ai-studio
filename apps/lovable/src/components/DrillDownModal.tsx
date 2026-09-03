@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Sparkles, FileSpreadsheet, ArrowUpRight, Layers } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { downloadCsv } from '@horeca-smart/core';
 
 export const DrillDownModal: React.FC = () => {
   const { language, drillDown, closeDrillDown } = useApp();
@@ -32,9 +33,9 @@ export const DrillDownModal: React.FC = () => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => alert(isAr ? 'تم تصدير سجل البيانات بصيغة Excel' : 'Exported to Excel')}
+              onClick={() => downloadCsv(`drilldown-${type}.csv`, [{ title, type, ...(data as Record<string, unknown>) }])}
               className="p-2 rounded-xl text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
-              title="Excel Export"
+              title="CSV Export"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             </button>

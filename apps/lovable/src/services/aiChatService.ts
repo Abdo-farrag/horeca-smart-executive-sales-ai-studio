@@ -1,4 +1,5 @@
 import { analytics } from '../analytics';
+import { supabase } from '../lib/supabase';
 import { GlobalFilterState } from '../types';
 import { getEffectiveFilterParams } from '../utils/filterUtils';
 import {
@@ -317,9 +318,26 @@ export async function sendAiChatMessage(params: {
     language: params.language,
   };
 
+  if (!supabase) {
+    const err = new Error('Authenticated Supabase session is required');
+    (err as any).code = 'AUTH_REQUIRED';
+    throw err;
+  }
+
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (sessionError || !accessToken) {
+    const err = new Error('Authenticated Supabase session is required');
+    (err as any).code = 'AUTH_REQUIRED';
+    throw err;
+  }
+
   const response = await fetch('/api/ai/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify(requestPayload),
   });
 

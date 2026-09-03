@@ -189,7 +189,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetFilters = () => {
-    setFilters(DEFAULT_FILTERS);
+    setFilters((prev) => {
+      const latestAvailableDataDate = prev.latestAvailableDataDate;
+      const { effectiveStartDate, effectiveEndDate } = calculateEffectiveWindow(
+        DEFAULT_FILTERS.selectedStartDate,
+        DEFAULT_FILTERS.selectedEndDate,
+        latestAvailableDataDate || null
+      );
+
+      return {
+        ...DEFAULT_FILTERS,
+        latestAvailableDataDate: prev.latestAvailableDataDate,
+        effectiveStartDate,
+        effectiveEndDate,
+        dateRange: {
+          ...DEFAULT_FILTERS.dateRange,
+          startDate: effectiveStartDate,
+          endDate: effectiveEndDate,
+        },
+      };
+    });
   };
 
   const activeFilterCount = useMemo(() => {

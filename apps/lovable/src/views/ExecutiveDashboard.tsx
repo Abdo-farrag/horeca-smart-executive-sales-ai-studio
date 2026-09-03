@@ -44,6 +44,7 @@ import { KpiCard } from '../components/KpiCard';
 import { DataSourceStatus } from '../components/DataSourceStatus';
 import { useExecutiveDashboard } from '../hooks/useExecutiveDashboard';
 import { DailySalesRepPerformance } from '../components/DailySalesRepPerformance';
+import { downloadCsv } from '@horeca-smart/core';
 
 export const ExecutiveDashboard: React.FC = () => {
   const {
@@ -68,6 +69,24 @@ export const ExecutiveDashboard: React.FC = () => {
 
   // Data selections — verified Executive data only, never context fallback KPIs.
   const activeKpis = execData.kpis;
+
+  const handleExecutiveExport = () => {
+    const rows = activeKpis.map((kpi) => ({
+      metric: isAr ? kpi.titleAr : kpi.titleEn,
+      current_value: kpi.currentValue,
+      previous_value: kpi.previousValue,
+      growth_percent: kpi.growthPercent,
+      unit: kpi.unit,
+      selected_company: filters.companyName || filters.company,
+      selected_salesperson: filters.salespersonName || filters.salesperson || '',
+      governorate: filters.governorateName || '',
+      area: filters.areaName || '',
+      customer: filters.customerName || '',
+      product: filters.productName || '',
+    }));
+    downloadCsv(`executive-kpis-${filters.effectiveStartDate || filters.dateRange.startDate}-${filters.effectiveEndDate || filters.dateRange.endDate}.csv`, rows);
+  };
+
 
   const companyPieData = execData.salesByCompany && execData.salesByCompany.length > 0
     ? execData.salesByCompany.map((c, idx) => ({
@@ -104,6 +123,14 @@ export const ExecutiveDashboard: React.FC = () => {
                 : 'Commercial metrics are displayed only after the verified Analytics source succeeds for the selected scope.'}
             </p>
           </div>
+          <button
+            onClick={handleExecutiveExport}
+            disabled={activeKpis.length === 0}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs flex items-center gap-2 transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>{isAr ? 'تصدير المؤشرات CSV' : 'Export current KPIs'}</span>
+          </button>
           <button
             onClick={() => setAiPanelOpen(true)}
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"

@@ -54,7 +54,7 @@ export async function fetchSalesRepSummaryList(
   }
 
   try {
-    const { companyName: effectiveCompanyName, salespersonName: effectiveSalesperson, effectiveStartDate } = getEffectiveFilterParams(filters);
+    const { companyName: effectiveCompanyName, salespersonName: effectiveSalesperson, effectiveStartDate, governorateCode, areaCode, customerId, productId } = getEffectiveFilterParams(filters);
     const p_month = effectiveStartDate;
     const p_company_name = effectiveCompanyName;
     const p_salesperson = salespersonOverride !== undefined
@@ -65,6 +65,10 @@ export async function fetchSalesRepSummaryList(
       month: p_month,
       companyName: p_company_name,
       salesperson: p_salesperson,
+      governorateCode,
+      areaCode,
+      customerId,
+      productId,
     });
 
     const mappedRows: SalesRepSummaryRpcRow[] = sdkRows.map((r) => ({
@@ -231,8 +235,18 @@ export async function fetchSalesRep360All(
   salesperson: string,
   filters: GlobalFilterState
 ): Promise<SalesRep360DetailsResponse> {
-  const month = filters.dateRange?.startDate || '2026-08-01';
-  const companyName = filters.company === 'All' ? null : filters.company;
+  const { effectiveStartDate, companyName, governorateCode, areaCode, customerId, productId } = getEffectiveFilterParams(filters);
+  const month = effectiveStartDate || filters.dateRange?.startDate || '2026-08-01';
+
+  if (governorateCode || areaCode || customerId || productId) {
+    return {
+      trend: [],
+      customers: [],
+      retentionDetails: [],
+      isLive: false,
+      error: 'ADVANCED_FILTERS_UNSUPPORTED',
+    };
+  }
 
   const [trendRes, custRes, retRes] = await Promise.all([
     fetchSalesRepTrend(salesperson, companyName),
