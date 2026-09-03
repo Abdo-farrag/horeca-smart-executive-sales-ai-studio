@@ -1,0 +1,54 @@
+name: One Shot Studio AI Parity
+
+on:
+  push:
+    branches:
+      - fix/release-qa-2026-09-03
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/release-qa-2026-09-03
+          fetch-depth: 0
+      - name: Patch Studio AI server
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('apps/studio/server.ts')
+          s=p.read_text()
+          s=s.replace('import { GoogleGenAI } from "@google/genai";\n', 'import { GoogleGenAI } from "@google/genai";\nimport { createClient } from "@supabase/supabase-js";\n', 1)
+          marker='app.use(express.json({ limit: "10mb" }));\n'
+          helpers='''app.use(express.json({ limit: "10mb" }));\n\nfunction getBearerToken(authorization: string | undefined): string | null {\n  if (!authorization) return null;\n  const match = authorization.match(/^Bearer\\s+(.+)$/i);\n  return match?.[1]?.trim() || null;\n}\n\nfunction getSupabaseServerConfig(): { url: string; anonKey: string } | null {\n  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;\n  const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;\n  if (!url || !anonKey) return null;\n  return { url, anonKey };\n}\n'''
+          if 'function getBearerToken' not in s:
+            s=s.replace(marker, helpers, 1)
+          old='''  let contextMode: AiContextMode = "AGGREGATED";\n  let intent: AiQueryIntent | undefined = undefined;\n\n  try {\n    const {'''
+          new='''  let contextMode: AiContextMode = "AGGREGATED";\n  let intent: AiQueryIntent | undefined = undefined;\n  let authenticatedRole: string | null = null;\n\n  try {\n    const authorization = req.get("authorization");\n    const accessToken = getBearerToken(authorization);\n    if (!accessToken) {\n      return res.status(401).json({ error: { code: "AUTH_REQUIRED", message: "A valid Supabase bearer token is required." } });\n    }\n\n    const supabaseConfig = getSupabaseServerConfig();\n    if (!supabaseConfig) {\n      return res.status(500).json({ error: { code: "CONFIG_ERROR", message: "Supabase server authentication is not configured." } });\n    }\n\n    const authClient = createClient(supabaseConfig.url, supabaseConfig.anonKey, {\n      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },\n      global: { headers: { Authorization: `Bearer ${accessToken}` } },\n    });\n\n    const { data: verifiedUser, error: userError } = await authClient.auth.getUser(accessToken);\n    if (userError || !verifiedUser.user) {\n      return res.status(401).json({ error: { code: "AUTH_INVALID", message: "The Supabase session is invalid or expired." } });\n    }\n\n    const { data: accessProfile, error: accessError } = await authClient.rpc("current_access_profile");\n    if (accessError || !accessProfile || typeof accessProfile !== "object") {\n      return res.status(403).json({ error: { code: "ACCESS_DENIED", message: "No active commercial access profile is available." } });\n    }\n    authenticatedRole = String((accessProfile as Record<string, unknown>).role ?? "");\n    if (!["admin", "manager"].includes(authenticatedRole)) {\n      return res.status(403).json({ error: { code: "AI_SCOPE_NOT_READY", message: "AI access for team/rep-scoped roles is disabled until server-side scoped context is available." } });\n    }\n\n    const {'''
+          if old not in s:
+            raise SystemExit('Studio AI insertion marker not found')
+          s=s.replace(old,new,1)
+          s=s.replace('''      return res.status(500).json({\n        error: {\n          code: "CONFIG_ERROR",\n          message: "GEMINI_API_KEY is not configured on the server.",\n        },\n      });''','''      return res.status(503).json({\n        error: {\n          code: "AI_SERVICE_UNAVAILABLE",\n          message: "The AI provider is not configured on the server.",\n        },\n      });''',1)
+          p.write_text(s)
+          PY
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci || npm install
+      - run: npm run contracts:test
+      - run: npm run test:unit
+      - run: npm run lint
+      - run: npm run build
+      - name: Commit verified parity fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/studio/server.ts
+          git commit -m "fix: secure Studio AI server parity"
+          git push origin HEAD:fix/release-qa-2026-09-03
