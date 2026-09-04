@@ -45,16 +45,18 @@ export const CustomerActionCenter: React.FC = () => {
   const { language, filters, setFilters, setSelectedCustomer } = useApp();
   const isAr = language === 'ar';
 
-  // State for as-of date (Defaulting to latest available sales data date)
-  const [asOfDate, setAsOfDate] = useState<string>(filters.latestAvailableDataDate || '');
+  const globalAsOfDate = filters.effectiveEndDate || filters.latestAvailableDataDate || '';
+  const globalCompanyName = filters.companyName || (filters.company !== 'All' ? filters.company : 'All');
+  const globalSalespersonName = filters.salespersonName || filters.salesperson || (filters.salesRepId && filters.salesRepId !== 'All' ? filters.salesRepId : 'All');
+
+  // Canonical global filters are the source of truth; in-page controls remain usable local overrides.
+  const [asOfDate, setAsOfDate] = useState<string>(globalAsOfDate);
 
   useEffect(() => {
-    if (filters.latestAvailableDataDate) {
-      setAsOfDate(filters.latestAvailableDataDate);
-    }
-  }, [filters.latestAvailableDataDate]);
-  const [selectedCompany, setSelectedCompany] = useState<string>(filters.company || 'All');
-  const [selectedSalesperson, setSelectedSalesperson] = useState<string>(filters.salesRepId || 'All');
+    if (globalAsOfDate) setAsOfDate(globalAsOfDate);
+  }, [globalAsOfDate]);
+  const [selectedCompany, setSelectedCompany] = useState<string>(globalCompanyName);
+  const [selectedSalesperson, setSelectedSalesperson] = useState<string>(globalSalespersonName);
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');
   const [selectedActionType, setSelectedActionType] = useState<string>('ALL');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
@@ -152,18 +154,14 @@ export const CustomerActionCenter: React.FC = () => {
   const [page, setPage] = useState<number>(1);
   const pageSize = 25;
 
-  // Sync with global company / salesperson filters if changed externally
+  // Sync with canonical global company / salesperson filters if changed externally.
   useEffect(() => {
-    if (filters.company && filters.company !== selectedCompany) {
-      setSelectedCompany(filters.company);
-    }
-  }, [filters.company]);
+    if (globalCompanyName !== selectedCompany) setSelectedCompany(globalCompanyName);
+  }, [globalCompanyName]);
 
   useEffect(() => {
-    if (filters.salesRepId && filters.salesRepId !== selectedSalesperson) {
-      setSelectedSalesperson(filters.salesRepId);
-    }
-  }, [filters.salesRepId]);
+    if (globalSalespersonName !== selectedSalesperson) setSelectedSalesperson(globalSalespersonName);
+  }, [globalSalespersonName]);
 
   // Load Portfolio Summary
   const loadPortfolioSummary = useCallback(async () => {
@@ -288,7 +286,7 @@ export const CustomerActionCenter: React.FC = () => {
       id: customerId as any,
       nameAr: customerName,
       nameEn: customerName,
-      company: selectedCompany === 'All' ? 'MAS' : (selectedCompany as any),
+      company: (selectedCompany === 'All' ? (filters.companyName || undefined) : selectedCompany) as any,
       sector: 'restaurant',
       area: '',
       city: '',
