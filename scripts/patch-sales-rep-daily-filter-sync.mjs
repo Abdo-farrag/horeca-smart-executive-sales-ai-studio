@@ -107,7 +107,22 @@ const newStateBlock = `export const SalesRepDailyActionCenter: React.FC = () => 
   const [selectedPriority, setSelectedPriority] = useState<string>('ALL');`;
 
 const headerNeedle = `      </div>\n\n      {/* 2. Mandatory Filters Bar */}`;
-const headerReplacement = `      </div>\n\n      {unsupportedGlobalFilters.length > 0 && (\n        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs text-amber-800 dark:text-amber-300">\n          <AlertTriangle className="w-4 h-4 shrink-0" />\n          <span>\n            {isAr\n              ? \\`الفلاتر التالية غير مدعومة داخل مركز عمل المندوب حاليًا ولن يتم تجاهل ذلك بصمت: \\${unsupportedGlobalFilters.join('، ')}\\`\n              : \\`These global filters are not currently supported by the Sales Rep Daily Action Center RPCs: \\${unsupportedGlobalFilters.join(', ')}\\`}\n          </span>\n        </div>\n      )}\n\n      {/* 2. Mandatory Filters Bar */}`;
+const headerReplacement = [
+  '      </div>',
+  '',
+  '      {unsupportedGlobalFilters.length > 0 && (',
+  '        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs text-amber-800 dark:text-amber-300">',
+  '          <AlertTriangle className="w-4 h-4 shrink-0" />',
+  '          <span>',
+  '            {isAr',
+  "              ? 'الفلاتر التالية غير مدعومة داخل مركز عمل المندوب حاليًا ولن يتم تجاهل ذلك بصمت: ' + unsupportedGlobalFilters.join('، ')",
+  "              : 'These global filters are not currently supported by the Sales Rep Daily Action Center RPCs: ' + unsupportedGlobalFilters.join(', ')}",
+  '          </span>',
+  '        </div>',
+  '      )}',
+  '',
+  '      {/* 2. Mandatory Filters Bar */}',
+].join('\n');
 
 for (const path of targets) {
   let source = fs.readFileSync(path, 'utf8');
