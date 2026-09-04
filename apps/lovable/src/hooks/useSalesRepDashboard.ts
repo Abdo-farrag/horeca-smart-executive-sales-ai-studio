@@ -24,7 +24,7 @@ export function useSalesRepDashboard(filters: GlobalFilterState) {
   const filterKey = JSON.stringify({
     start: filters.effectiveStartDate || filters.dateRange?.startDate,
     end: filters.effectiveEndDate || filters.dateRange?.endDate,
-    company: filters.company,
+    company: companyNameOverride ?? filters.company,
     salesperson: filters.salesperson || filters.salespersonName || filters.salesRepId,
     governorate: filters.governorateCode,
     area: filters.areaCode,
@@ -90,7 +90,7 @@ export function useSalesRepDashboard(filters: GlobalFilterState) {
   };
 }
 
-export function useSalesRep360(salespersonName: string | null, filters: GlobalFilterState) {
+export function useSalesRep360(salespersonName: string | null, filters: GlobalFilterState, companyNameOverride: string | null = null) {
   const [trend, setTrend] = useState<SalesRepTrendRpcRow[]>([]);
   const [customers, setCustomers] = useState<SalesRepCustomerRpcRow[]>([]);
   const [retentionDetails, setRetentionDetails] = useState<SalesRepRetentionDetailRpcRow[]>([]);
@@ -120,7 +120,7 @@ export function useSalesRep360(salespersonName: string | null, filters: GlobalFi
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchSalesRep360All(salespersonName, filtersRef.current);
+      const res = await fetchSalesRep360All(salespersonName, filtersRef.current, companyNameOverride);
       setTrend(res.trend);
       setCustomers(res.customers);
       setRetentionDetails(res.retentionDetails);
@@ -131,7 +131,7 @@ export function useSalesRep360(salespersonName: string | null, filters: GlobalFi
     } finally {
       setLoading(false);
     }
-  }, [salespersonName]);
+  }, [salespersonName, companyNameOverride]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -148,7 +148,7 @@ export function useSalesRep360(salespersonName: string | null, filters: GlobalFi
       setLoading(true);
       setError(null);
       try {
-        const res = await fetchSalesRep360All(salespersonName!, filtersRef.current);
+        const res = await fetchSalesRep360All(salespersonName!, filtersRef.current, companyNameOverride);
         if (isCurrent) {
           setTrend(res.trend);
           setCustomers(res.customers);
