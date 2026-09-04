@@ -60,12 +60,12 @@ export const products = {
         productCategory: row.product_category ? String(row.product_category) : null,
         ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
         uniqueCustomers: toFiniteNumber(row.unique_customers ?? 0, 'unique_customers'),
-        quantitySold: toFiniteNumber(row.quantity_sold ?? 0, 'quantity_sold'),
+        quantitySold: toFiniteNumber(row.qty_sold ?? row.quantity_sold ?? 0, 'qty_sold'),
         salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
         averageUnitValue: toFiniteNumber(row.average_unit_value ?? 0, 'average_unit_value'),
         firstOrderDate: row.first_order_date ? String(row.first_order_date) : null,
         lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
-        activeSalespeople: toFiniteNumber(row.active_salespeople ?? 0, 'active_salespeople'),
+        activeSalespeople: toFiniteNumber(row.salespeople_count ?? row.active_salespeople ?? 0, 'salespeople_count'),
         companiesCount: toFiniteNumber(row.companies_count ?? 0, 'companies_count'),
       })
     );
@@ -116,7 +116,7 @@ export const products = {
       (row) => ({
         orderMonth: String(row.order_month ?? ''),
         salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
-        quantitySold: toFiniteNumber(row.quantity_sold ?? 0, 'quantity_sold'),
+        quantitySold: toFiniteNumber(row.qty_sold ?? row.quantity_sold ?? 0, 'qty_sold'),
         ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
         uniqueCustomers: toFiniteNumber(row.unique_customers ?? 0, 'unique_customers'),
         averageUnitValue: toFiniteNumber(row.average_unit_value ?? 0, 'average_unit_value'),
@@ -304,7 +304,7 @@ export const products = {
         customerName: String(row.customer_name ?? ''),
         companyName: String(row.company_name ?? ''),
         ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
-        quantitySold: toFiniteNumber(row.quantity_sold ?? 0, 'quantity_sold'),
+        quantitySold: toFiniteNumber(row.qty_sold ?? row.quantity_sold ?? 0, 'qty_sold'),
         salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
         lastOrderDate: row.last_order_date ? String(row.last_order_date) : null,
         primarySalesperson: row.primary_salesperson ? String(row.primary_salesperson) : null,
@@ -331,7 +331,7 @@ export const products = {
         companyName: String(row.company_name ?? ''),
         ordersCount: toFiniteNumber(row.orders_count ?? 0, 'orders_count'),
         uniqueCustomers: toFiniteNumber(row.unique_customers ?? 0, 'unique_customers'),
-        quantitySold: toFiniteNumber(row.quantity_sold ?? 0, 'quantity_sold'),
+        quantitySold: toFiniteNumber(row.qty_sold ?? row.quantity_sold ?? 0, 'qty_sold'),
         salesValue: toFiniteNumber(row.sales_value ?? 0, 'sales_value'),
         averageOrderValue: toFiniteNumber(row.average_order_value ?? 0, 'average_order_value'),
       })
