@@ -1,0 +1,36 @@
+name: One Shot Sales Rep Daily Filter Sync
+
+on:
+  push:
+    branches:
+      - fix/sales-rep-daily-global-filter-sync-2026-09-04
+    paths:
+      - 'scripts/patch-sales-rep-daily-filter-sync.mjs'
+      - '.github/workflows/one-shot-sales-rep-daily-filter-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/sales-rep-daily-global-filter-sync-2026-09-04
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply targeted patch
+        run: node scripts/patch-sales-rep-daily-filter-sync.mjs
+      - name: Verify regression contract
+        run: node tests/business-rules/sales-rep-daily-filter-sync-contract.mjs
+      - name: Commit targeted fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/views/SalesRepDailyActionCenter.tsx apps/lovable/src/views/SalesRepDailyActionCenter.tsx apps/studio/src/views/SalesRepDailyActionCenter.tsx
+          git commit -m "fix: sync Sales Rep Daily with global filters"
+          git push origin HEAD:fix/sales-rep-daily-global-filter-sync-2026-09-04
