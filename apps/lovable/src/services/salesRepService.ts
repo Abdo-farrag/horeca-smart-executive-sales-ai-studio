@@ -233,9 +233,11 @@ export async function fetchSalesRepRetentionDetails(
  */
 export async function fetchSalesRep360All(
   salesperson: string,
-  filters: GlobalFilterState
+  filters: GlobalFilterState,
+  companyNameOverride: string | null = null
 ): Promise<SalesRep360DetailsResponse> {
   const { effectiveStartDate, companyName, governorateCode, areaCode, customerId, productId } = getEffectiveFilterParams(filters);
+  const scopedCompanyName = companyNameOverride ?? companyName;
   const month = effectiveStartDate || filters.dateRange?.startDate || '2026-08-01';
 
   if (governorateCode || areaCode || customerId || productId) {
@@ -249,9 +251,9 @@ export async function fetchSalesRep360All(
   }
 
   const [trendRes, custRes, retRes] = await Promise.all([
-    fetchSalesRepTrend(salesperson, companyName),
-    fetchSalesRepCustomers(salesperson, month, companyName),
-    fetchSalesRepRetentionDetails(salesperson, month, companyName)
+    fetchSalesRepTrend(salesperson, scopedCompanyName),
+    fetchSalesRepCustomers(salesperson, month, scopedCompanyName),
+    fetchSalesRepRetentionDetails(salesperson, month, scopedCompanyName)
   ]);
 
   const combinedError = trendRes.error || custRes.error || retRes.error;

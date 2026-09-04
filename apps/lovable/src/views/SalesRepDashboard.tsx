@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Users,
   UserCheck,
@@ -55,7 +55,8 @@ export const SalesRepDashboard: React.FC = () => {
 
   // Rep Search & Selection State
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRepName, setSelectedRepName] = useState<string | null>('Mona Mohamed');
+  const [selectedRepName, setSelectedRepName] = useState<string | null>(null);
+  const [selectedRepCompanyName, setSelectedRepCompanyName] = useState<string | null>(null);
 
   // Filter summaries by search query
   const filteredSummaries = useMemo(() => {
@@ -65,10 +66,20 @@ export const SalesRepDashboard: React.FC = () => {
     );
   }, [summaries, searchQuery]);
 
+  useEffect(() => {
+    if (!selectedRepName && summaries.length > 0) {
+      setSelectedRepName(summaries[0].salesperson);
+      setSelectedRepCompanyName(summaries[0].company_name);
+    }
+  }, [summaries, selectedRepName, selectedRepCompanyName]);
+
+  // Selected roster row defines both salesperson and company scope. Multi-company aggregation is allowed only when no row/company is selected.
   // Aggregate selected rep's summary row(s) (in case rep exists across multiple operating companies e.g. Horeca Smart + MAS)
   const selectedRepSummary = useMemo(() => {
     if (!selectedRepName) return null;
-    const repRows = summaries.filter(s => s.salesperson === selectedRepName);
+    const repRows = summaries.filter(s =>
+      s.salesperson === selectedRepName && (!selectedRepCompanyName || s.company_name === selectedRepCompanyName)
+    );
     if (repRows.length === 0) return null;
 
     if (repRows.length === 1) return repRows[0];
@@ -104,7 +115,7 @@ export const SalesRepDashboard: React.FC = () => {
     loading: detailsLoading,
     error: detailsError,
     refetch: refetch360
-  } = useSalesRep360(selectedRepName, filters);
+  } = useSalesRep360(selectedRepName, filters, selectedRepCompanyName);
 
   // Customer Portfolio Search & Sorting & Pagination State
   const [custSearch, setCustSearch] = useState('');
@@ -154,7 +165,7 @@ export const SalesRepDashboard: React.FC = () => {
   }, [retentionDetails, retentionTab, retentionSearch]);
 
   // Overall totals for verification banner
-  const totalRepsCount = summaries.length;
+  const totalRepsCount = new Set(summaries.map((row) => row.salesperson)).size;
   const grandTotalSales = summaries.reduce((s, r) => s + Number(r.sales_value || 0), 0);
   const grandTotalOrders = summaries.reduce((s, r) => s + Number(r.orders_count || 0), 0);
 
@@ -321,12 +332,14 @@ export const SalesRepDashboard: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredSummaries.map((rep, idx) => {
-                  const isSelected = selectedRepName === rep.salesperson;
-                  const retPct = ((rep.retention_rate || 0) * 100).toFixed(1);
+                  const isSelected = selectedRepName === rep.salesperson && selectedRepCompanyName === rep.company_name;
+                  const retPct = rep.previous_customers > 0 && rep.retention_rate != null
+                    ? (rep.retention_rate * 100).toFixed(1)
+                    : null;
                   return (
                     <tr
                       key={`${rep.salesperson}_${rep.company_name}_${idx}`}
-                      onClick={() => setSelectedRepName(rep.salesperson)}
+                      onClick={() => { setSelectedRepName(rep.salesperson); setSelectedRepCompanyName(rep.company_name); }}
                       className={`cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-blue-50 dark:bg-blue-950/60 font-bold border-l-4 border-blue-600'
@@ -347,7 +360,7 @@ export const SalesRepDashboard: React.FC = () => {
                       </td>
                       <td className="p-2.5 font-mono font-bold text-slate-700 dark:text-slate-300">{rep.orders_count}</td>
                       <td className="p-2.5 font-mono font-bold text-blue-600 dark:text-blue-400">{rep.active_customers}</td>
-                      <td className="p-2.5 font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{retPct}%</td>
+                      <td className="p-2.5 font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{retPct === null ? (isAr ? 'تاريخ سابق غير كافٍ' : 'Insufficient History') : `${retPct}%`}</td>
                       <td className="p-2.5 font-mono text-rose-600 dark:text-rose-400 font-bold">{rep.lost_customers}</td>
                       <td className="p-2.5 font-mono text-teal-600 dark:text-teal-400 font-bold">{rep.new_customers}</td>
                       <td className="p-2.5 text-center">
@@ -395,12 +408,16 @@ export const SalesRepDashboard: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <select
-                value={selectedRepName}
-                onChange={(e) => setSelectedRepName(e.target.value)}
+                value={`${selectedRepName || ''}|||${selectedRepCompanyName || ''}`}
+                onChange={(e) => {
+                  const [name, company] = e.target.value.split('|||');
+                  setSelectedRepName(name || null);
+                  setSelectedRepCompanyName(company || null);
+                }}
                 className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {summaries.map((s, idx) => (
-                  <option key={`${s.salesperson}_${s.company_name}_${idx}`} value={s.salesperson}>{s.salesperson} ({s.company_name})</option>
+                  <option key={`${s.salesperson}_${s.company_name}_${idx}`} value={`${s.salesperson}|||${s.company_name}`}>{s.salesperson} ({s.company_name})</option>
                 ))}
               </select>
             </div>
@@ -511,7 +528,9 @@ export const SalesRepDashboard: React.FC = () => {
                 <div className="bg-sky-50 dark:bg-sky-950/40 p-3.5 rounded-2xl border border-sky-200 dark:border-sky-800/50 shadow-sm">
                   <div className="text-[10px] text-sky-800 dark:text-sky-300 font-extrabold uppercase">{isAr ? 'نسبة الاحتفاظ' : 'Retention Rate'}</div>
                   <div className="text-base font-black text-sky-700 dark:text-sky-400 mt-1">
-                    {((selectedRepSummary.retention_rate || 0) * 100).toFixed(1)}%
+                    {selectedRepSummary.previous_customers > 0 && selectedRepSummary.retention_rate != null
+                      ? `${(selectedRepSummary.retention_rate * 100).toFixed(1)}%`
+                      : (isAr ? 'تاريخ سابق غير كافٍ' : 'Insufficient History')}
                   </div>
                   <div className="text-[9px] text-sky-600 dark:text-sky-400 mt-0.5">{isAr ? 'المستمرون ÷ السابق' : 'Retained / Prev count'}</div>
                 </div>
