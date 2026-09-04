@@ -1,0 +1,36 @@
+name: One Shot Customer Action Center KPI Fix
+
+on:
+  push:
+    branches:
+      - fix/customer-action-center-kpi-mapping-2026-09-04
+    paths:
+      - 'scripts/patch-customer-action-center-kpi.mjs'
+      - '.github/workflows/one-shot-customer-action-center-kpi.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/customer-action-center-kpi-mapping-2026-09-04
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply targeted patch
+        run: node scripts/patch-customer-action-center-kpi.mjs
+      - name: Verify regression contract
+        run: node tests/business-rules/customer-action-center-kpi-contract.mjs
+      - name: Commit targeted fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/analytics/customers.ts apps/lovable/src/analytics/customers.ts apps/studio/src/analytics/customers.ts src/views/CustomerActionCenter.tsx apps/lovable/src/views/CustomerActionCenter.tsx apps/studio/src/views/CustomerActionCenter.tsx
+          git commit -m "fix: correct Customer Action Center KPI mapping and filter sync"
+          git push origin HEAD:fix/customer-action-center-kpi-mapping-2026-09-04
