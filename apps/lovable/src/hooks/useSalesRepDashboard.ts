@@ -24,7 +24,7 @@ export function useSalesRepDashboard(filters: GlobalFilterState) {
   const filterKey = JSON.stringify({
     start: filters.effectiveStartDate || filters.dateRange?.startDate,
     end: filters.effectiveEndDate || filters.dateRange?.endDate,
-    company: companyNameOverride ?? filters.company,
+    company: filters.company,
     salesperson: filters.salesperson || filters.salespersonName || filters.salesRepId,
     governorate: filters.governorateCode,
     area: filters.areaCode,
@@ -105,7 +105,7 @@ export function useSalesRep360(salespersonName: string | null, filters: GlobalFi
     salespersonName,
     start: filters.effectiveStartDate || filters.dateRange?.startDate,
     end: filters.effectiveEndDate || filters.dateRange?.endDate,
-    company: filters.company,
+    company: companyNameOverride ?? filters.company,
   });
 
   const load = useCallback(async () => {
