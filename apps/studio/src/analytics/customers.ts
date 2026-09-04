@@ -460,9 +460,9 @@ export const customers = {
       },
       (row) => ({
         totalCustomers: toFiniteNumber(row.total_customers ?? 0, 'total_customers'),
-        highPriority: toFiniteNumber(row.high_priority ?? row.high_priority_count ?? 0, 'high_priority'),
-        mediumPriority: toFiniteNumber(row.medium_priority ?? row.medium_priority_count ?? 0, 'medium_priority'),
-        lowPriority: toFiniteNumber(row.low_priority ?? row.low_priority_count ?? 0, 'low_priority'),
+        highPriority: toFiniteNumber(row.high_priority ?? row.high_priority_customers ?? row.high_priority_count ?? 0, 'high_priority'),
+        mediumPriority: toFiniteNumber(row.medium_priority ?? row.medium_priority_customers ?? row.medium_priority_count ?? 0, 'medium_priority'),
+        lowPriority: toFiniteNumber(row.low_priority ?? row.low_priority_customers ?? row.low_priority_count ?? 0, 'low_priority'),
         winBackCustomers: toFiniteNumber(row.win_back_customers ?? row.winback_customers ?? 0, 'win_back_customers'),
         decliningCustomers: toFiniteNumber(row.declining_customers ?? 0, 'declining_customers'),
         overdueCustomers: toFiniteNumber(row.overdue_customers ?? 0, 'overdue_customers'),
