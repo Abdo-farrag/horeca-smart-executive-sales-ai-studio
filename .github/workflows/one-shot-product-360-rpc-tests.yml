@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Install dependencies
+        run: npm ci
       - name: Patch stale unit expectations
         run: node scripts/patch-product-360-rpc-tests.mjs
       - name: Run Product SDK tests
