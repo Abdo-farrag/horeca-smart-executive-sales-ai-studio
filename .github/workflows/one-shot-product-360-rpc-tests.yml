@@ -1,0 +1,36 @@
+name: One Shot Product 360 RPC Tests
+
+on:
+  push:
+    branches:
+      - fix/product-360-rpc-contract-alignment-2026-09-06
+    paths:
+      - 'scripts/patch-product-360-rpc-tests.mjs'
+      - '.github/workflows/one-shot-product-360-rpc-tests.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/product-360-rpc-contract-alignment-2026-09-06
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch stale unit expectations
+        run: node scripts/patch-product-360-rpc-tests.mjs
+      - name: Run Product SDK tests
+        run: npx vitest run src/analytics/__tests__/products.test.ts apps/lovable/src/analytics/__tests__/products.test.ts apps/studio/src/analytics/__tests__/products.test.ts
+      - name: Commit updated tests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/analytics/__tests__/products.test.ts apps/lovable/src/analytics/__tests__/products.test.ts apps/studio/src/analytics/__tests__/products.test.ts
+          git commit -m "test: align Product 360 RPC unit expectations"
+          git push origin HEAD:fix/product-360-rpc-contract-alignment-2026-09-06
