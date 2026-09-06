@@ -1,0 +1,17 @@
+name: One Shot Product 360 RPC Contract RED
+
+on:
+  push:
+    branches:
+      - fix/product-360-rpc-contract-alignment-2026-09-06
+    paths:
+      - 'tests/business-rules/product-360-rpc-contract-alignment-contract.mjs'
+      - '.github/workflows/one-shot-product-360-rpc-contract-red.yml'
+
+jobs:
+  red:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify regression contract is RED before implementation
+        run: node tests/business-rules/product-360-rpc-contract-alignment-contract.mjs
