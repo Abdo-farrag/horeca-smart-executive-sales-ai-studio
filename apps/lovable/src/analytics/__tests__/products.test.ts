@@ -141,12 +141,18 @@ describe('Products SDK Tests', () => {
 
     const res = await products.trend({
       productId: 8516,
+      startDate: '2026-08-01',
+      endDate: '2026-08-04',
       companyName: null,
+      salesperson: null,
     });
 
     expect(supabase!.rpc).toHaveBeenCalledWith('analytics_product_trend', {
       p_product_id: 8516,
+      p_start_month: '2026-08-01',
+      p_end_month: '2026-08-04',
       p_company_name: null,
+      p_salesperson: null,
     });
 
     expect(res).toHaveLength(1);
@@ -184,7 +190,6 @@ describe('Products SDK Tests', () => {
       p_end_date: '2026-08-04',
       p_company_name: null,
       p_limit: 10,
-      p_offset: null,
     });
 
     expect(res).toHaveLength(1);
@@ -221,7 +226,6 @@ describe('Products SDK Tests', () => {
       p_end_date: '2026-08-04',
       p_company_name: null,
       p_limit: 10,
-      p_offset: null,
     });
 
     expect(res).toHaveLength(1);
