@@ -392,7 +392,10 @@ export interface ProductTrendResult {
 
 export interface ProductTrendParams {
   productId: number;
+  startDate?: string | null;
+  endDate?: string | null;
   companyName?: string | null;
+  salesperson?: string | null;
 }
 
 export interface ProductDailyTrendParams {
@@ -527,7 +530,6 @@ export interface ProductTopCustomerParams {
   endDate?: string | null;
   companyName?: string | null;
   limit?: number | null;
-  offset?: number | null;
 }
 
 export interface ProductTopSalespersonResult {
@@ -546,7 +548,6 @@ export interface ProductTopSalespersonParams {
   endDate?: string | null;
   companyName?: string | null;
   limit?: number | null;
-  offset?: number | null;
 }
 
 export interface ProductCustomerRetentionParams {
