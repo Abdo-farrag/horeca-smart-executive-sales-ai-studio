@@ -1,0 +1,36 @@
+name: One Shot Product 360 RPC Align
+
+on:
+  push:
+    branches:
+      - fix/product-360-rpc-contract-alignment-2026-09-06
+    paths:
+      - 'scripts/patch-product-360-rpc-contract-alignment.mjs'
+      - '.github/workflows/one-shot-product-360-rpc-align.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/product-360-rpc-contract-alignment-2026-09-06
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply targeted patch
+        run: node scripts/patch-product-360-rpc-contract-alignment.mjs
+      - name: Verify regression contract
+        run: node tests/business-rules/product-360-rpc-contract-alignment-contract.mjs
+      - name: Commit targeted fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src apps package.json
+          git commit -m "fix: align Product 360 RPC calls with production signatures"
+          git push origin HEAD:fix/product-360-rpc-contract-alignment-2026-09-06
