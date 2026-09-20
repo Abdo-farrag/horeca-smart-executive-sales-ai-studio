@@ -43,7 +43,6 @@ export async function fetchProductSummaryList(
       productId,
       search: options.search || null,
       limit: options.limit ?? 1000,
-      offset: options.offset ?? 0,
     };
 
     const data = await analytics.products.summary(params);
@@ -84,9 +83,13 @@ export async function fetchProductTrend(
   error: string | null;
 }> {
   try {
+    const { companyName, salespersonName, effectiveStartDate, effectiveEndDate } = getEffectiveFilterParams(filters);
     const data = await analytics.products.trend({
       productId,
-      companyName: filters.company === 'All' ? null : filters.company,
+      startDate: effectiveStartDate,
+      endDate: effectiveEndDate,
+      companyName,
+      salesperson: salespersonName,
     });
     return { data, error: null };
   } catch (err: any) {
@@ -229,7 +232,7 @@ export async function fetchProductReconciliation(
 export async function fetchProductTopCustomers(
   productId: number,
   filters: GlobalFilterState,
-  options: { limit?: number; offset?: number } = {}
+  options: { limit?: number } = {}
 ): Promise<{
   data: ProductTopCustomerResult[];
   error: string | null;
@@ -241,7 +244,6 @@ export async function fetchProductTopCustomers(
       endDate: filters.dateRange?.endDate ?? null,
       companyName: filters.company === 'All' ? null : filters.company,
       limit: options.limit ?? 20,
-      offset: options.offset ?? 0,
     });
     return { data, error: null };
   } catch (err: any) {
@@ -253,7 +255,7 @@ export async function fetchProductTopCustomers(
 export async function fetchProductTopSalespeople(
   productId: number,
   filters: GlobalFilterState,
-  options: { limit?: number; offset?: number } = {}
+  options: { limit?: number } = {}
 ): Promise<{
   data: ProductTopSalespersonResult[];
   error: string | null;
@@ -265,7 +267,6 @@ export async function fetchProductTopSalespeople(
       endDate: filters.dateRange?.endDate ?? null,
       companyName: filters.company === 'All' ? null : filters.company,
       limit: options.limit ?? 20,
-      offset: options.offset ?? 0,
     });
     return { data, error: null };
   } catch (err: any) {

@@ -107,11 +107,17 @@ export const products = {
   },
 
   async trend(params: ProductTrendParams): Promise<ProductTrendResult[]> {
+    if (params.startDate) assertIsoDate(params.startDate, 'startDate');
+    if (params.endDate) assertIsoDate(params.endDate, 'endDate');
+
     return callAnalyticsRpc(
       'analytics_product_trend',
       {
         p_product_id: params.productId,
+        p_start_month: params.startDate ?? null,
+        p_end_month: params.endDate ?? null,
         p_company_name: params.companyName ?? null,
+        p_salesperson: params.salesperson ?? null,
       },
       (row) => ({
         orderMonth: String(row.order_month ?? ''),
@@ -297,7 +303,6 @@ export const products = {
         p_end_date: params.endDate ?? null,
         p_company_name: params.companyName ?? null,
         p_limit: params.limit ?? null,
-        p_offset: params.offset ?? null,
       },
       (row) => ({
         customerId: toFiniteNumber(row.customer_id, 'customer_id'),
@@ -324,7 +329,6 @@ export const products = {
         p_end_date: params.endDate ?? null,
         p_company_name: params.companyName ?? null,
         p_limit: params.limit ?? null,
-        p_offset: params.offset ?? null,
       },
       (row) => ({
         salesperson: String(row.salesperson ?? ''),
