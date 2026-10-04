@@ -60,6 +60,8 @@ requireText(syncSource, 'sync_logs', 'sync logging');
 requireText(syncSource, 'sale_line_id', 'delivery direct relation probe');
 requireText(syncSource, 'origin_returned_move_id', 'return linkage');
 requireText(syncSource, 'sale_line_ids', 'invoice linkage');
+requireText(syncSource, 'display_type', 'invoice product-line discriminator');
+requireText(syncSource, '["display_type", "=", "product"]', 'product-only invoice line filter');
 requireText(syncSource, 'invoice_multi_sale_line_count', 'invoice multi-link diagnostics');
 requireText(syncSource, 'delivery_direct_link_pct', 'delivery relation coverage');
 requireText(syncSource, 'return_original_move_link_pct', 'return relation coverage');
