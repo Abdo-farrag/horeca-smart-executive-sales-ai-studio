@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const view = readFileSync('src/views/OrderToCashReturnsControl.tsx', 'utf8');
+const app = readFileSync('src/App.tsx', 'utf8');
 const control = readFileSync('src/components/OrderToCashSyncControl.tsx', 'utf8');
 const service = readFileSync('src/services/orderToCashSyncService.ts', 'utf8');
 
-assert.match(view, /OrderToCashSyncControl/, 'OTC page must render the sync control');
+assert.match(app, /OrderToCashSyncControl/, 'OTC route must render the sync control');
 assert.match(control, /useAccess\(\)/, 'OTC sync controls must use the authenticated access context');
 assert.match(control, /profile\.role === 'admin'|profile\.role === 'manager'/, 'OTC sync controls must be limited to admin or manager');
 assert.match(control, /Dry Run/, 'OTC sync controls must expose a dry-run action');
