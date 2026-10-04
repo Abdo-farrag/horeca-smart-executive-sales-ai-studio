@@ -65,6 +65,9 @@ requireText(syncSource, '["display_type", "=", "product"]', 'product-only invoic
 requireText(syncSource, 'invoice_multi_sale_line_count', 'invoice multi-link diagnostics');
 requireText(syncSource, 'delivery_direct_link_pct', 'delivery relation coverage');
 requireText(syncSource, 'return_original_move_link_pct', 'return relation coverage');
+requireText(syncSource, 'auth.getUser', 'OTC sync JWT verification');
+requireText(syncSource, 'app_user_roles', 'OTC sync role authorization');
+requireText(syncSource, 'SYNC_FORBIDDEN', 'OTC sync fail-closed authorization');
 if (/\.delete\s*\(/.test(syncSource)) errors.push('OTC sync V1 must not hard-delete historical rows');
 
 const invoiceLineProbe = read('supabase/functions/probe-odoo18-otc-invoice-lines/index.ts');
