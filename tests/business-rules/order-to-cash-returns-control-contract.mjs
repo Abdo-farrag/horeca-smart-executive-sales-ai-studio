@@ -63,6 +63,8 @@ requireText(syncSource, 'sale_line_ids', 'invoice linkage');
 requireText(syncSource, 'invoice_multi_sale_line_count', 'invoice multi-link diagnostics');
 requireText(syncSource, 'delivery_direct_link_pct', 'delivery relation coverage');
 requireText(syncSource, 'return_original_move_link_pct', 'return relation coverage');
+requireText(syncSource, 'display_type', 'invoice-line nature diagnostics');
+requireText(syncSource, 'invoice_display_type_counts', 'invoice-line display-type coverage');
 if (/\.delete\s*\(/.test(syncSource)) errors.push('OTC sync V1 must not hard-delete historical rows');
 
 for (const appRoot of ['src', 'apps/lovable/src', 'apps/studio/src']) {
