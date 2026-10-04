@@ -50,8 +50,30 @@ requireText(rpcMigration, 'gross_invoiced', 'gross invoiced metric');
 requireText(rpcMigration, 'credit_note', 'credit note metric');
 requireText(rpcMigration, 'net_invoiced', 'net invoiced metric');
 requireText(rpcMigration, 'date_basis', 'explicit date basis');
-requireText(rpcMigration, 'null::text link_confidence', 'order events must carry neutral link quality in filtered event stream');
-requireText(rpcMigration, "from filtered where event_type <> 'order'", 'event link quality must use authorized filtered events');
+
+const qualityEventsMatch = rpcMigration.match(/quality_events\s+as\s*\(([\s\S]*?)\),\s*quality\s+as\s*\(/i);
+if (!qualityEventsMatch) {
+  errors.push('event link quality must use an explicit quality_events CTE before quality aggregation');
+} else {
+  const qualityEvents = qualityEventsMatch[1];
+  for (const needle of [
+    'public.otc_scope_row_allowed(x.company_id,x.salesperson_id)',
+    'p_company_name',
+    'p_salesperson_id',
+    'p_customer_id',
+    'p_product_id',
+    'p_brand',
+    'p_category',
+    'p_governorate_code',
+    'p_area_code',
+  ]) {
+    if (!qualityEvents.includes(needle)) errors.push(`event link quality scope missing: ${needle}`);
+  }
+  for (const table of ['public.otc_delivery_lines', 'public.otc_return_lines', 'public.otc_invoice_lines']) {
+    if (!qualityEvents.includes(table)) errors.push(`event link quality source missing: ${table}`);
+  }
+}
+requireText(rpcMigration, 'from quality_events', 'event link quality aggregation');
 
 const syncSource = read('supabase/functions/sync-odoo18-order-to-cash/index.ts');
 for (const model of ['stock.picking', 'stock.move', 'account.move', 'account.move.line']) {
