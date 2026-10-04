@@ -48,6 +48,7 @@ type AccountMoveLine = {
   price_subtotal?: number | string;
   price_total?: number | string;
   sale_line_ids?: number[];
+  display_type?: string | false | null;
   write_date?: string;
 };
 type SaleLineSnapshot = {
@@ -126,7 +127,9 @@ async function rpc<T>(url: string, service: string, method: string, args: unknow
   });
   if (!response.ok) throw new Error(`Odoo HTTP ${response.status}: ${await response.text()}`);
   const payload = await response.json();
-  if (payload.error) throw new Error(String(payload.error?.data?.message ?? payload.error?.message ?? "Odoo RPC error"));
+  if (payload.error) {
+    throw new Error(String(payload.error?.data?.message ?? payload.error?.message ?? "Odoo RPC error"));
+  }
   return payload.result as T;
 }
 
@@ -140,7 +143,15 @@ async function executeKw<T>(
   positionalArgs: unknown[] = [],
   keywordArgs: JsonRecord = {},
 ): Promise<T> {
-  return await rpc<T>(url, "object", "execute_kw", [db, uid, apiKey, model, method, positionalArgs, keywordArgs]);
+  return await rpc<T>(url, "object", "execute_kw", [
+    db,
+    uid,
+    apiKey,
+    model,
+    method,
+    positionalArgs,
+    keywordArgs,
+  ]);
 }
 
 async function readAll<T>(
@@ -182,7 +193,9 @@ Deno.serve(async (req: Request) => {
     const mode = body.mode === "sync" ? "sync" : "dry_run";
     const startDate = typeof body.start_date === "string" && body.start_date ? body.start_date : DEFAULT_CUTOFF;
     const endDate = typeof body.end_date === "string" && body.end_date ? body.end_date : null;
-    const requestedCompanies = Array.isArray(body.company_ids) ? body.company_ids.map(Number) : ALLOWED_COMPANIES;
+    const requestedCompanies = Array.isArray(body.company_ids)
+      ? body.company_ids.map(Number)
+      : ALLOWED_COMPANIES;
     const companyIds = requestedCompanies.filter((id) => ALLOWED_COMPANIES.includes(id));
     if (!companyIds.length) throw new Error("No authorized OTC company ids requested");
 
@@ -192,22 +205,37 @@ Deno.serve(async (req: Request) => {
     const apiKey = requiredEnv("ODOO_API_KEY");
     const supabaseUrl = requiredEnv("SUPABASE_URL");
     const serviceRoleKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
-    supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
 
-    const uid = await rpc<number | false>(odooUrl, "common", "authenticate", [odooDb, username, apiKey, {}]);
+    const uid = await rpc<number | false>(odooUrl, "common", "authenticate", [
+      odooDb,
+      username,
+      apiKey,
+      {},
+    ]);
     if (!uid) throw new Error("Odoo authentication failed");
 
-    const stockMoveMeta = await executeKw<Record<string, unknown>>(odooUrl, odooDb, uid, apiKey, "stock.move", "fields_get", [], { attributes: ["type"] });
-    const pickingMeta = await executeKw<Record<string, unknown>>(odooUrl, odooDb, uid, apiKey, "stock.picking", "fields_get", [], { attributes: ["type"] });
-    const accountMoveMeta = await executeKw<Record<string, unknown>>(odooUrl, odooDb, uid, apiKey, "account.move", "fields_get", [], { attributes: ["type"] });
-    const accountLineMeta = await executeKw<Record<string, unknown>>(odooUrl, odooDb, uid, apiKey, "account.move.line", "fields_get", [], { attributes: ["type"] });
+    const stockMoveMeta = await executeKw<Record<string, unknown>>(
+      odooUrl, odooDb, uid, apiKey, "stock.move", "fields_get", [], { attributes: ["type"] },
+    );
+    const pickingMeta = await executeKw<Record<string, unknown>>(
+      odooUrl, odooDb, uid, apiKey, "stock.picking", "fields_get", [], { attributes: ["type"] },
+    );
+    const accountMoveMeta = await executeKw<Record<string, unknown>>(
+      odooUrl, odooDb, uid, apiKey, "account.move", "fields_get", [], { attributes: ["type"] },
+    );
+    const accountLineMeta = await executeKw<Record<string, unknown>>(
+      odooUrl, odooDb, uid, apiKey, "account.move.line", "fields_get", [], { attributes: ["type"] },
+    );
 
     const hasSaleLineId = Boolean(stockMoveMeta.sale_line_id);
     const required = {
       "stock.picking": ["id", "name", "picking_type_code", "origin", "partner_id", "company_id", "state", "date_done", "return_id"],
       "stock.move": ["id", "picking_id", "product_id", "product_uom_qty", "quantity", "origin_returned_move_id", "state"],
       "account.move": ["id", "name", "move_type", "state", "date", "invoice_date", "invoice_origin", "company_id", "partner_id", "invoice_user_id", "reversed_entry_id", "currency_id"],
-      "account.move.line": ["id", "move_id", "product_id", "quantity", "price_subtotal", "price_total", "sale_line_ids"],
+      "account.move.line": ["id", "move_id", "product_id", "quantity", "price_subtotal", "price_total", "sale_line_ids", "display_type"],
     } as const;
     const metas: Record<string, Record<string, unknown>> = {
       "stock.picking": pickingMeta,
@@ -223,18 +251,37 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Missing required OTC Odoo fields: ${JSON.stringify(missingFields)}`);
     }
 
-    const dateDoneDomain: unknown[] = [["state", "=", "done"], ["company_id", "in", companyIds], ["date_done", ">=", `${startDate} 00:00:00`]];
+    const dateDoneDomain: unknown[] = [
+      ["state", "=", "done"],
+      ["company_id", "in", companyIds],
+      ["date_done", ">=", `${startDate} 00:00:00`],
+    ];
     if (endDate) dateDoneDomain.push(["date_done", "<", `${endDate} 23:59:59`]);
     const pickings = await readAll<StockPicking>(
-      odooUrl, odooDb, uid, apiKey, "stock.picking", dateDoneDomain,
-      ["id", "name", "picking_type_code", "origin", "partner_id", "company_id", "state", "date_done", "return_id"], companyIds,
+      odooUrl,
+      odooDb,
+      uid,
+      apiKey,
+      "stock.picking",
+      dateDoneDomain,
+      ["id", "name", "picking_type_code", "origin", "partner_id", "company_id", "state", "date_done", "return_id"],
+      companyIds,
     );
     const pickingMap = new Map(pickings.map((p) => [p.id, p]));
     const pickingIds = pickings.map((p) => p.id);
     const moveFields = ["id", "picking_id", "product_id", "product_uom_qty", "quantity", "origin_returned_move_id", "state", "write_date"];
     if (hasSaleLineId) moveFields.push("sale_line_id");
     const stockMoves = pickingIds.length
-      ? await readAll<StockMove>(odooUrl, odooDb, uid, apiKey, "stock.move", [["picking_id", "in", pickingIds], ["state", "=", "done"]], moveFields, companyIds)
+      ? await readAll<StockMove>(
+          odooUrl,
+          odooDb,
+          uid,
+          apiKey,
+          "stock.move",
+          [["picking_id", "in", pickingIds], ["state", "=", "done"]],
+          moveFields,
+          companyIds,
+        )
       : [];
 
     const returnMoves = stockMoves.filter((move) => Boolean(m2oId(move.origin_returned_move_id)));
@@ -242,39 +289,67 @@ Deno.serve(async (req: Request) => {
       const picking = pickingMap.get(m2oId(move.picking_id) ?? -1);
       return picking?.picking_type_code === "outgoing" && !m2oId(move.origin_returned_move_id);
     });
-    const deliveryDirect = hasSaleLineId ? deliveryMoves.filter((m) => Boolean(m2oId(m.sale_line_id))).length : 0;
+    const deliveryDirect = hasSaleLineId
+      ? deliveryMoves.filter((move) => Boolean(m2oId(move.sale_line_id))).length
+      : 0;
 
-    const originalMoveIds = uniqueNumbers(returnMoves.map((m) => m2oId(m.origin_returned_move_id)));
+    const originalMoveIds = uniqueNumbers(returnMoves.map((move) => m2oId(move.origin_returned_move_id)));
     let originalMoves: StockMove[] = [];
     if (originalMoveIds.length) {
-      const originalFields = [...moveFields];
-      originalMoves = await readAll<StockMove>(odooUrl, odooDb, uid, apiKey, "stock.move", [["id", "in", originalMoveIds]], originalFields, companyIds);
+      originalMoves = await readAll<StockMove>(
+        odooUrl,
+        odooDb,
+        uid,
+        apiKey,
+        "stock.move",
+        [["id", "in", originalMoveIds]],
+        [...moveFields],
+        companyIds,
+      );
     }
-    const originalMoveMap = new Map(originalMoves.map((m) => [m.id, m]));
-    const returnsWithOriginalResolved = returnMoves.filter((m) => originalMoveMap.has(m2oId(m.origin_returned_move_id) ?? -1)).length;
-    const returnsWithSaleLine = returnMoves.filter((m) => {
-      const original = originalMoveMap.get(m2oId(m.origin_returned_move_id) ?? -1);
+    const originalMoveMap = new Map(originalMoves.map((move) => [move.id, move]));
+    const returnsWithOriginalResolved = returnMoves.filter((move) =>
+      originalMoveMap.has(m2oId(move.origin_returned_move_id) ?? -1)
+    ).length;
+    const returnsWithSaleLine = returnMoves.filter((move) => {
+      const original = originalMoveMap.get(m2oId(move.origin_returned_move_id) ?? -1);
       return Boolean(original && hasSaleLineId && m2oId(original.sale_line_id));
     }).length;
 
-    const accountDomain: unknown[] = [["move_type", "in", ["out_invoice", "out_refund"]], ["state", "=", "posted"], ["company_id", "in", companyIds], ["invoice_date", ">=", startDate]];
+    const accountDomain: unknown[] = [
+      ["move_type", "in", ["out_invoice", "out_refund"]],
+      ["state", "=", "posted"],
+      ["company_id", "in", companyIds],
+      ["invoice_date", ">=", startDate],
+    ];
     if (endDate) accountDomain.push(["invoice_date", "<=", endDate]);
     const accountMoves = await readAll<AccountMove>(
-      odooUrl, odooDb, uid, apiKey, "account.move", accountDomain,
-      ["id", "name", "move_type", "state", "date", "invoice_date", "invoice_origin", "company_id", "partner_id", "invoice_user_id", "reversed_entry_id", "currency_id", "write_date"], companyIds,
+      odooUrl,
+      odooDb,
+      uid,
+      apiKey,
+      "account.move",
+      accountDomain,
+      ["id", "name", "move_type", "state", "date", "invoice_date", "invoice_origin", "company_id", "partner_id", "invoice_user_id", "reversed_entry_id", "currency_id", "write_date"],
+      companyIds,
     );
-    const accountMoveMap = new Map(accountMoves.map((m) => [m.id, m]));
-    const accountMoveIds = accountMoves.map((m) => m.id);
+    const accountMoveMap = new Map(accountMoves.map((move) => [move.id, move]));
+    const accountMoveIds = accountMoves.map((move) => move.id);
     const accountLines = accountMoveIds.length
       ? await readAll<AccountMoveLine>(
-          odooUrl, odooDb, uid, apiKey, "account.move.line",
-          [["move_id", "in", accountMoveIds], ["product_id", "!=", false]],
-          ["id", "move_id", "product_id", "quantity", "price_subtotal", "price_total", "sale_line_ids", "write_date"], companyIds,
+          odooUrl,
+          odooDb,
+          uid,
+          apiKey,
+          "account.move.line",
+          [["move_id", "in", accountMoveIds], ["product_id", "!=", false], ["display_type", "=", "product"]],
+          ["id", "move_id", "product_id", "quantity", "price_subtotal", "price_total", "sale_line_ids", "display_type", "write_date"],
+          companyIds,
         )
       : [];
-    const invoiceNoSaleLine = accountLines.filter((l) => (l.sale_line_ids ?? []).length === 0).length;
-    const invoiceSingleSaleLine = accountLines.filter((l) => (l.sale_line_ids ?? []).length === 1).length;
-    const invoiceMultiSaleLineCount = accountLines.filter((l) => (l.sale_line_ids ?? []).length > 1).length;
+    const invoiceNoSaleLine = accountLines.filter((line) => (line.sale_line_ids ?? []).length === 0).length;
+    const invoiceSingleSaleLine = accountLines.filter((line) => (line.sale_line_ids ?? []).length === 1).length;
+    const invoiceMultiSaleLineCount = accountLines.filter((line) => (line.sale_line_ids ?? []).length > 1).length;
 
     const diagnostics = {
       stock_move_sale_line_id_available: hasSaleLineId,
@@ -309,26 +384,28 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Build direct/inferred sale-order-line context from the already synchronized ordered source.
     const referencedSaleLineIds = uniqueNumbers([
-      ...deliveryMoves.map((m) => m2oId(m.sale_line_id)),
-      ...originalMoves.map((m) => m2oId(m.sale_line_id)),
-      ...accountLines.flatMap((l) => l.sale_line_ids ?? []),
+      ...deliveryMoves.map((move) => m2oId(move.sale_line_id)),
+      ...originalMoves.map((move) => m2oId(move.sale_line_id)),
+      ...accountLines.flatMap((line) => line.sale_line_ids ?? []),
     ]);
     const saleLineMap = new Map<number, SaleLineSnapshot>();
     for (const batch of chunks(referencedSaleLineIds, 500)) {
-      const { data, error } = await supabase.from("product_sales_from_june1")
+      const { data, error } = await supabase
+        .from("product_sales_from_june1")
         .select("odoo_line_id,order_id,order_name,customer_id,customer_name,product_id,product_name,company_id,company_name,qty_sold,subtotal")
         .in("odoo_line_id", batch);
       if (error) throw new Error(`Could not read ordered sale lines: ${error.message}`);
-      for (const row of (data ?? []) as SaleLineSnapshot[]) saleLineMap.set(Number(row.odoo_line_id), row);
+      for (const row of (data ?? []) as SaleLineSnapshot[]) {
+        saleLineMap.set(Number(row.odoo_line_id), row);
+      }
     }
 
-    // Fallback candidates by order origin + product + company for stock moves without sale_line_id.
-    const originNames = [...new Set(pickings.map((p) => p.origin).filter((v): v is string => Boolean(v)))];
+    const originNames = [...new Set(pickings.map((picking) => picking.origin).filter((value): value is string => Boolean(value)))];
     const fallbackSaleLines: SaleLineSnapshot[] = [];
     for (const batch of chunks(originNames, 200)) {
-      const { data, error } = await supabase.from("product_sales_from_june1")
+      const { data, error } = await supabase
+        .from("product_sales_from_june1")
         .select("odoo_line_id,order_id,order_name,customer_id,customer_name,product_id,product_name,company_id,company_name,qty_sold,subtotal")
         .in("order_name", batch);
       if (error) throw new Error(`Could not read fallback sale lines: ${error.message}`);
@@ -339,7 +416,9 @@ Deno.serve(async (req: Request) => {
       const productId = m2oId(move.product_id);
       const companyId = m2oId(picking.company_id);
       const candidates = fallbackSaleLines.filter((line) =>
-        line.order_name === picking.origin && Number(line.product_id) === productId && Number(line.company_id) === companyId
+        line.order_name === picking.origin &&
+        Number(line.product_id) === productId &&
+        Number(line.company_id) === companyId
       );
       return candidates.length === 1 ? candidates[0] : null;
     };
@@ -347,9 +426,14 @@ Deno.serve(async (req: Request) => {
     const allOrderIds = uniqueNumbers([...saleLineMap.values()].map((line) => line.order_id));
     const salespersonByOrder = new Map<number, number | null>();
     for (const batch of chunks(allOrderIds, 500)) {
-      const { data, error } = await supabase.from("sales_orders_odoo18_secure").select("order_id,salesperson_id").in("order_id", batch);
+      const { data, error } = await supabase
+        .from("sales_orders_odoo18_secure")
+        .select("order_id,salesperson_id")
+        .in("order_id", batch);
       if (error) throw new Error(`Could not read secure salesperson identity: ${error.message}`);
-      for (const row of (data ?? []) as SecureOrder[]) salespersonByOrder.set(Number(row.order_id), row.salesperson_id == null ? null : Number(row.salesperson_id));
+      for (const row of (data ?? []) as SecureOrder[]) {
+        salespersonByOrder.set(Number(row.order_id), row.salesperson_id == null ? null : Number(row.salesperson_id));
+      }
     }
 
     const lineContext = (saleLineId: number | null, fallback: SaleLineSnapshot | null = null) => {
@@ -450,7 +534,11 @@ Deno.serve(async (req: Request) => {
         reversed_entry_id: m2oId(move?.reversed_entry_id),
         source_state: move?.state ?? "posted",
         link_confidence: saleLineIds.length === 1 ? "direct" : "unmatched",
-        allocation_status: saleLineIds.length === 1 ? "single_link" : saleLineIds.length > 1 ? "multi_link_unallocated" : "unmatched",
+        allocation_status: saleLineIds.length === 1
+          ? "single_link"
+          : saleLineIds.length > 1
+            ? "multi_link_unallocated"
+            : "unmatched",
         source_updated_at: toIso(line.write_date ?? move?.write_date),
         last_seen_at: new Date().toISOString(),
         synced_at: new Date().toISOString(),
@@ -489,7 +577,14 @@ Deno.serve(async (req: Request) => {
     });
     if (logError) throw new Error(`sync_logs insert failed: ${logError.message}`);
 
-    return json({ success: true, mode: "sync", database: odooDb, start_date: startDate, end_date: endDate, ...summary });
+    return json({
+      success: true,
+      mode: "sync",
+      database: odooDb,
+      start_date: startDate,
+      end_date: endDate,
+      ...summary,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (supabase) {
