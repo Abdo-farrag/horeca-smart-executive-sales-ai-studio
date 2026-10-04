@@ -325,11 +325,7 @@ begin
              count(*) filter(where link_confidence='inferred')::numeric inferred_count,
              count(*) filter(where link_confidence='unmatched')::bigint unmatched_count,
              count(*)::numeric total_count
-      from (
-        select link_confidence from public.otc_delivery_lines where delivery_date::date between p_start_date and p_end_date
-        union all select link_confidence from public.otc_return_lines where return_receipt_date::date between p_start_date and p_end_date
-        union all select link_confidence from public.otc_invoice_lines where invoice_date between p_start_date and p_end_date
-      ) q
+      from filtered where event_type <> 'order'
     )
     select v_basis,
       coalesce(sum(o.ordered_qty),0), coalesce(sum(o.ordered_value),0), d.q,d.v,r.q,r.v,
@@ -387,16 +383,16 @@ begin
 
   return query
   with events as (
-    select o.order_date::date event_date, 'order'::text event_type, o.subtotal::numeric val, o.company_id, s.salesperson_id, o.customer_id, o.product_id, pk.brand, coalesce(pk.category,o.product_category) category, g.governorate_code,g.area_code
+    select o.order_date::date event_date, 'order'::text event_type, o.subtotal::numeric val, o.company_id, s.salesperson_id, o.customer_id, o.product_id, pk.brand, coalesce(pk.category,o.product_category) category, g.governorate_code,g.area_code,null::text link_confidence
     from public.product_sales_from_june1 o left join public.sales_orders_odoo18_secure s on s.order_id=o.order_id left join public.product_knowledge pk on pk.product_id=o.product_id left join public.customer_geography_odoo18 g on g.customer_id=o.customer_id and (g.company_id=o.company_id or g.company_id is null)
     union all
-    select d.delivery_date::date,'delivery',coalesce(d.delivered_value,0),d.company_id,d.salesperson_id,d.customer_id,d.product_id,pk.brand,pk.category,g.governorate_code,g.area_code
+    select d.delivery_date::date,'delivery',coalesce(d.delivered_value,0),d.company_id,d.salesperson_id,d.customer_id,d.product_id,pk.brand,pk.category,g.governorate_code,g.area_code,d.link_confidence
     from public.otc_delivery_lines d left join public.product_knowledge pk on pk.product_id=d.product_id left join public.customer_geography_odoo18 g on g.customer_id=d.customer_id and (g.company_id=d.company_id or g.company_id is null)
     union all
-    select r.return_receipt_date::date,'return',coalesce(r.estimated_operational_value,0),r.company_id,r.salesperson_id,r.customer_id,r.product_id,pk.brand,pk.category,g.governorate_code,g.area_code
+    select r.return_receipt_date::date,'return',coalesce(r.estimated_operational_value,0),r.company_id,r.salesperson_id,r.customer_id,r.product_id,pk.brand,pk.category,g.governorate_code,g.area_code,r.link_confidence
     from public.otc_return_lines r left join public.product_knowledge pk on pk.product_id=r.product_id left join public.customer_geography_odoo18 g on g.customer_id=r.customer_id and (g.company_id=r.company_id or g.company_id is null)
     union all
-    select i.invoice_date,case when i.move_type='out_invoice' then 'invoice' else 'credit_note' end,abs(i.price_subtotal),i.company_id,i.salesperson_id,i.customer_id,i.product_id,pk.brand,pk.category,g.governorate_code,g.area_code
+    select i.invoice_date,case when i.move_type='out_invoice' then 'invoice' else 'credit_note' end,abs(i.price_subtotal),i.company_id,i.salesperson_id,i.customer_id,i.product_id,pk.brand,pk.category,g.governorate_code,g.area_code,i.link_confidence
     from public.otc_invoice_lines i left join public.product_knowledge pk on pk.product_id=i.product_id left join public.customer_geography_odoo18 g on g.customer_id=i.customer_id and (g.company_id=i.company_id or g.company_id is null)
     where i.source_state='posted'
   ), filtered as (
