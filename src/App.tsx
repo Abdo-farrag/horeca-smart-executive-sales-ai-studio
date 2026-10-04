@@ -13,6 +13,7 @@ import { EntityDetailModals } from './components/EntityDetailModals';
 // View Imports
 import { ExecutiveDashboard } from './views/ExecutiveDashboard';
 import { SalesDashboard } from './views/SalesDashboard';
+import { OrderToCashReturnsControl } from './views/OrderToCashReturnsControl';
 import { CustomerDashboard } from './views/CustomerDashboard';
 import { CustomerActionCenter } from './views/CustomerActionCenter';
 import { SalesRepDailyActionCenter } from './views/SalesRepDailyActionCenter';
@@ -45,6 +46,8 @@ const MainLayout: React.FC = () => {
         return <ExecutiveDashboard />;
       case 'sales':
         return <SalesDashboard />;
+      case 'order-to-cash':
+        return <OrderToCashReturnsControl />;
       case 'customers':
         return <CustomerDashboard />;
       case 'customer-action-center':
