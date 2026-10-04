@@ -3,6 +3,7 @@ import type { AppRole } from '../types/access';
 export type AppViewId =
   | 'executive'
   | 'sales'
+  | 'order-to-cash'
   | 'customers'
   | 'customer-action-center'
   | 'sales-rep-daily-action-center'
@@ -26,6 +27,7 @@ const ROLE_VIEWS: Record<AppRole, ReadonlySet<AppViewId>> = {
   ]),
   supervisor: new Set([
     'sales',
+    'order-to-cash',
     'customers',
     'customer-action-center',
     'sales-rep-daily-action-center',
@@ -37,6 +39,7 @@ const ROLE_VIEWS: Record<AppRole, ReadonlySet<AppViewId>> = {
   manager: new Set([
     'executive',
     'sales',
+    'order-to-cash',
     'customers',
     'customer-action-center',
     'sales-rep-daily-action-center',
@@ -51,6 +54,7 @@ const ROLE_VIEWS: Record<AppRole, ReadonlySet<AppViewId>> = {
   admin: new Set([
     'executive',
     'sales',
+    'order-to-cash',
     'customers',
     'customer-action-center',
     'sales-rep-daily-action-center',
