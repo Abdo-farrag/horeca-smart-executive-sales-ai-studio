@@ -50,6 +50,8 @@ requireText(rpcMigration, 'gross_invoiced', 'gross invoiced metric');
 requireText(rpcMigration, 'credit_note', 'credit note metric');
 requireText(rpcMigration, 'net_invoiced', 'net invoiced metric');
 requireText(rpcMigration, 'date_basis', 'explicit date basis');
+requireText(rpcMigration, 'null::text link_confidence', 'order events must carry neutral link quality in filtered event stream');
+requireText(rpcMigration, "from filtered where event_type <> 'order'", 'event link quality must use authorized filtered events');
 
 const syncSource = read('supabase/functions/sync-odoo18-order-to-cash/index.ts');
 for (const model of ['stock.picking', 'stock.move', 'account.move', 'account.move.line']) {
