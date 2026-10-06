@@ -6,6 +6,7 @@ import { GlobalFilterBar } from './components/GlobalFilterBar';
 import { AiAssistantPanel } from './components/AiAssistantPanel';
 import { DrillDownModal } from './components/DrillDownModal';
 import { EntityDetailModals } from './components/EntityDetailModals';
+import { OrderToCashSyncControl } from './components/OrderToCashSyncControl';
 
 // View Imports
 import { ExecutiveDashboard } from './views/ExecutiveDashboard';
@@ -31,7 +32,7 @@ const MainLayout: React.FC = () => {
       case 'sales':
         return <SalesDashboard />;
       case 'order-to-cash':
-        return <OrderToCashReturnsControl />;
+        return <div className="space-y-6"><OrderToCashSyncControl /><OrderToCashReturnsControl /></div>;
       case 'customers':
         return <CustomerDashboard />;
       case 'customer-action-center':
