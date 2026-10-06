@@ -6,8 +6,8 @@ import { GlobalFilterBar } from './components/GlobalFilterBar';
 import { AiAssistantPanel } from './components/AiAssistantPanel';
 import { DrillDownModal } from './components/DrillDownModal';
 import { EntityDetailModals } from './components/EntityDetailModals';
+import { OrderToCashSyncControl } from './components/OrderToCashSyncControl';
 
-// View Imports
 import { ExecutiveDashboard } from './views/ExecutiveDashboard';
 import { SalesDashboard } from './views/SalesDashboard';
 import { OrderToCashReturnsControl } from './views/OrderToCashReturnsControl';
@@ -26,32 +26,19 @@ const MainLayout: React.FC = () => {
 
   const renderCurrentView = () => {
     switch (currentView) {
-      case 'executive':
-        return <ExecutiveDashboard />;
-      case 'sales':
-        return <SalesDashboard />;
-      case 'order-to-cash':
-        return <OrderToCashReturnsControl />;
-      case 'customers':
-        return <CustomerDashboard />;
-      case 'customer-action-center':
-        return <CustomerActionCenter />;
-      case 'sales-rep-daily-action-center':
-        return <SalesRepDailyActionCenter />;
-      case 'sales-reps':
-        return <SalesRepDashboard />;
-      case 'products':
-        return <ProductDashboard />;
-      case 'categories':
-        return <CategoryDashboard />;
-      case 'areas':
-        return <AreaDashboard />;
-      case 'lost-customers':
-        return <LostCustomerDashboard />;
-      case 'settings':
-        return <SettingsView />;
-      default:
-        return <ExecutiveDashboard />;
+      case 'executive': return <ExecutiveDashboard />;
+      case 'sales': return <SalesDashboard />;
+      case 'order-to-cash': return <div className="space-y-6"><OrderToCashSyncControl /><OrderToCashReturnsControl /></div>;
+      case 'customers': return <CustomerDashboard />;
+      case 'customer-action-center': return <CustomerActionCenter />;
+      case 'sales-rep-daily-action-center': return <SalesRepDailyActionCenter />;
+      case 'sales-reps': return <SalesRepDashboard />;
+      case 'products': return <ProductDashboard />;
+      case 'categories': return <CategoryDashboard />;
+      case 'areas': return <AreaDashboard />;
+      case 'lost-customers': return <LostCustomerDashboard />;
+      case 'settings': return <SettingsView />;
+      default: return <ExecutiveDashboard />;
     }
   };
 
