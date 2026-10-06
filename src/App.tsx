@@ -9,10 +9,11 @@ import { GlobalFilterBar } from './components/GlobalFilterBar';
 import { AiAssistantPanel } from './components/AiAssistantPanel';
 import { DrillDownModal } from './components/DrillDownModal';
 import { EntityDetailModals } from './components/EntityDetailModals';
+import { OrderToCashSyncControl } from './components/OrderToCashSyncControl';
 
-// View Imports
 import { ExecutiveDashboard } from './views/ExecutiveDashboard';
 import { SalesDashboard } from './views/SalesDashboard';
+import { OrderToCashReturnsControl } from './views/OrderToCashReturnsControl';
 import { CustomerDashboard } from './views/CustomerDashboard';
 import { CustomerActionCenter } from './views/CustomerActionCenter';
 import { SalesRepDailyActionCenter } from './views/SalesRepDailyActionCenter';
@@ -34,37 +35,24 @@ const MainLayout: React.FC = () => {
   const effectiveView: AppViewId = allowed ? requestedView : getDefaultViewForRole(profile.role);
 
   useEffect(() => {
-    if (!allowed && currentView !== effectiveView) {
-      setCurrentView(effectiveView);
-    }
+    if (!allowed && currentView !== effectiveView) setCurrentView(effectiveView);
   }, [allowed, currentView, effectiveView, setCurrentView]);
 
   const renderCurrentView = () => {
     switch (effectiveView) {
-      case 'executive':
-        return <ExecutiveDashboard />;
-      case 'sales':
-        return <SalesDashboard />;
-      case 'customers':
-        return <CustomerDashboard />;
-      case 'customer-action-center':
-        return <CustomerActionCenter />;
-      case 'sales-rep-daily-action-center':
-        return <SalesRepDailyActionCenter />;
-      case 'sales-reps':
-        return <SalesRepDashboard />;
-      case 'products':
-        return <ProductDashboard />;
-      case 'categories':
-        return <CategoryDashboard />;
-      case 'areas':
-        return <AreaDashboard />;
-      case 'lost-customers':
-        return <LostCustomerDashboard />;
-      case 'settings':
-        return <SettingsView />;
-      default:
-        return null;
+      case 'executive': return <ExecutiveDashboard />;
+      case 'sales': return <SalesDashboard />;
+      case 'order-to-cash': return <div className="space-y-6"><OrderToCashSyncControl /><OrderToCashReturnsControl /></div>;
+      case 'customers': return <CustomerDashboard />;
+      case 'customer-action-center': return <CustomerActionCenter />;
+      case 'sales-rep-daily-action-center': return <SalesRepDailyActionCenter />;
+      case 'sales-reps': return <SalesRepDashboard />;
+      case 'products': return <ProductDashboard />;
+      case 'categories': return <CategoryDashboard />;
+      case 'areas': return <AreaDashboard />;
+      case 'lost-customers': return <LostCustomerDashboard />;
+      case 'settings': return <SettingsView />;
+      default: return null;
     }
   };
 
@@ -74,9 +62,7 @@ const MainLayout: React.FC = () => {
       <GlobalFilterBar />
       <div className="flex-1 max-w-[1440px] w-full mx-auto flex">
         <Sidebar />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-hidden">
-          {renderCurrentView()}
-        </main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-hidden">{renderCurrentView()}</main>
       </div>
       <AiAssistantPanel />
       <DrillDownModal />
@@ -89,9 +75,7 @@ export default function App() {
   return (
     <AccessProvider>
       <AccessGate>
-        <AppProvider>
-          <MainLayout />
-        </AppProvider>
+        <AppProvider><MainLayout /></AppProvider>
       </AccessGate>
     </AccessProvider>
   );
