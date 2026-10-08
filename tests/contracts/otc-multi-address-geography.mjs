@@ -11,6 +11,7 @@ const classifier=read("supabase/migrations/20261007075000_delivery_geography_cla
 const orderShipping=read("supabase/migrations/20261007073500_otc_order_shipping_dimension.sql");
 const orderGeo=read("supabase/migrations/20261007076000_otc_order_shipping_geography.sql");
 const customerRefresh=read("supabase/migrations/20261007075500_customer_geography_refresh.sql");
+const customerInit=read("supabase/migrations/20261007071000_customer_geography_dimension.sql");
 assert.match(migration,/create or replace function public\.analytics_order_to_cash_kpis_v1/);
 assert.match(migration,/create or replace function public\.analytics_order_to_cash_trend_v1/);
 assert.doesNotMatch(migration,/left join public\.customer_geography_odoo18/);
