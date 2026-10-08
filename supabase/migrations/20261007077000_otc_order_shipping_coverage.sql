@@ -10,8 +10,9 @@ with orders as (
 ), classified as (
   select o.company_id,o.order_id,
     case
-      when sh.delivery_partner_id is null then 'shipping_not_synced'
-      when ad.area_code is not null then 'delivery_area_verified_by_keyword'
+      when sh.order_id is null then 'shipping_not_synced'
+      when sh.delivery_partner_id is null then 'shipping_partner_missing'
+      when ad.area_code is not null then 'delivery_area_keyword_match'
       when ad.governorate_code is not null then 'delivery_governorate_only'
       when cg.area_code is not null or cg.governorate_code is not null then 'customer_geography_fallback'
       else 'unmapped'
