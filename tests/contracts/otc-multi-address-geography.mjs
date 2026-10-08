@@ -54,4 +54,7 @@ assert.match(coverage,/shipping_not_synced/);
 assert.match(coverage,/shipping_partner_missing/);
 assert.match(coverage,/customer_geography_fallback/);
 assert.doesNotMatch(coverage,/delivery_area_verified_by_keyword/);
+assert.match(sync,/let mode:"sync"\|"dry_run"="dry_run"/);
+assert.match(sync,/if\(supabase && mode === "sync" && message !== "AUTH_REQUIRED" && message !== "SYNC_FORBIDDEN"\)/);
+assert.match(sync,/if\(mode === "dry_run"\) return json\(\{success:true/);
 console.log("OTC multi-address, order-shipping and original-return geography contracts passed");
