@@ -33,13 +33,18 @@ insert into public.customer_geography_dimension (
   source_customer_write_date, refreshed_at
 )
 select
-  g.customer_id, g.company_id, g.customer_name,
+  g.customer_id, g.scoped_company_id, g.customer_name,
   g.governorate_code, g.governorate_name_ar, g.area_code, g.area_name_ar,
   g.geography_source, g.geography_confidence, g.needs_review,
   c.write_date, now()
-from public.customer_geography_odoo18 g
+from (
+  select geo.*, scope.company_id as scoped_company_id
+  from public.customer_geography_odoo18 geo
+  cross join (values (1::bigint),(2::bigint)) as scope(company_id)
+  where geo.company_id is null or geo.company_id=scope.company_id
+) g
 left join public.customer_master_odoo18 c
-  on c.customer_id = g.customer_id and c.company_id = g.company_id
+  on c.customer_id = g.customer_id and c.company_id is not distinct from g.company_id
 on conflict (customer_id, company_id) do update set
   customer_name = excluded.customer_name,
   governorate_code = excluded.governorate_code,
@@ -54,8 +59,8 @@ on conflict (customer_id, company_id) do update set
 
 delete from public.customer_geography_dimension d
 where not exists (
-  select 1 from public.customer_master_odoo18 c
-  where c.customer_id=d.customer_id and c.company_id=d.company_id
+  select 1 from public.customer_geography_odoo18 g
+  where g.customer_id=d.customer_id and (g.company_id=d.company_id or g.company_id is null)
 );
 
 alter table public.customer_geography_dimension enable row level security;
