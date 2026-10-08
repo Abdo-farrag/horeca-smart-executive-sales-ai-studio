@@ -8,7 +8,7 @@ set search_path=public
 as $$
 declare v_count bigint;
 begin
-  if auth.role()<>'service_role' then
+  if auth.role() is distinct from 'service_role' then
     raise exception 'SYNC_FORBIDDEN' using errcode='42501';
   end if;
   insert into public.customer_geography_dimension (
