@@ -106,4 +106,24 @@ from public.analytics_order_to_cash_kpis_v1('2026-10-01','2026-10-31','MAS');
 select period_start,ordered_value,net_delivered_value
 from public.analytics_order_to_cash_trend_v1('2026-10-01','2026-10-31',p_date_basis=>'order',p_grain=>'day');
 
+do $
+declare
+  k record;
+  trend_total numeric;
+  trend_rows bigint;
+begin
+  select * into k from public.analytics_order_to_cash_kpis_v1('2026-10-01','2026-10-31','MAS');
+  if k.ordered_value is distinct from 170 or k.net_delivered_value is distinct from 130
+     or k.net_invoiced_value is distinct from 130 then
+    raise exception 'KPI financial totals mismatch: %',row_to_json(k);
+  end if;
+  select count(*),coalesce(sum(ordered_value),0)
+    into trend_rows,trend_total
+    from public.analytics_order_to_cash_trend_v1(
+      '2026-10-01','2026-10-31',p_date_basis=>'order',p_grain=>'day');
+  if trend_rows <> 4 or trend_total <> 200 then
+    raise exception 'Trend missing/duplicated orders: rows %, total %',trend_rows,trend_total;
+  end if;
+end $;
+
 select 'OTC_POSTGRES_ASSERTIONS_PASSED' as result;
