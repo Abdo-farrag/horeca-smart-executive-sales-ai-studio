@@ -408,7 +408,7 @@ begin
     from public.otc_return_lines r left join public.product_knowledge pk on pk.product_id=r.product_id left join public.otc_return_geography_v1 g on g.odoo_return_move_id=r.odoo_return_move_id
     union all
     select i.invoice_date,case when i.move_type='out_invoice' then 'invoice' else 'credit_note' end,abs(i.price_subtotal),i.company_id,i.salesperson_id,i.customer_id,i.product_id,pk.brand,pk.category,g.governorate_code,g.area_code,i.link_confidence
-    from public.otc_invoice_lines i left join public.product_knowledge pk on pk.product_id=i.product_id left join public.customer_geography_odoo18 g on g.customer_id=i.customer_id and (g.company_id=i.company_id or g.company_id is null)
+    from public.otc_invoice_lines i left join public.product_knowledge pk on pk.product_id=i.product_id left join public.customer_geography_dimension g on g.customer_id=i.customer_id and g.company_id=i.company_id
     where i.source_state='posted'
   ), filtered as (
     select e.*
