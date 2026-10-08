@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { transformSync } from "esbuild";
 const read=(path)=>readFileSync(path,"utf8");
 const migration=read("supabase/migrations/20261007074000_otc_rpc_geography_performance.sql");
 const sync=read("supabase/functions/sync-odoo18-order-to-cash/index.ts");
+// CI normally typechecks browser code only; parse the Deno edge source too.
+assert.doesNotThrow(()=>transformSync(sync,{loader:"ts",target:"es2022"}));
 const addresses=read("supabase/migrations/20261007072000_customer_delivery_address_dimension.sql");
 const classifier=read("supabase/migrations/20261007075000_delivery_geography_classifier.sql");
 assert.match(migration,/create or replace function public\.analytics_order_to_cash_kpis_v1/);
