@@ -12,10 +12,18 @@ begin
   if auth.role() <> 'service_role' then
     raise exception 'SYNC_FORBIDDEN' using errcode='42501';
   end if;
+  -- Clear stale keyword matches when a delivery address has changed.
+  -- Preserve any future manually verified geography records.
+  update public.customer_delivery_address_dimension
+  set area_code=null,area_name_ar=null,governorate_code=null,
+      governorate_name_ar=null,geography_confidence=null,
+      geography_source='odoo_delivery_partner',needs_review=true
+  where geography_source in ('odoo_delivery_partner','delivery_address_keyword_match');
   with address_text as (
     select d.company_id,d.delivery_partner_id,
       lower(concat_ws(' ',d.street,d.street2,d.city,d.state_name)) as geo_text
     from public.customer_delivery_address_dimension d
+    where d.geography_source='odoo_delivery_partner'
   ), matches as (
     select t.company_id,t.delivery_partner_id,a.area_code,a.area_name_ar,
            a.governorate_code,a.governorate_name_ar,
