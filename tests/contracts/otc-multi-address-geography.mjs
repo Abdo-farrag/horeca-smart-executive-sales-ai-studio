@@ -29,7 +29,7 @@ assert.match(sync,/const deliveryAddressRows=\[\.\.\.addressRowsByKey\.values\(\
 assert.doesNotMatch(sync,/companyId \?\? companyIds\[0\]/);
 assert.doesNotMatch(sync,/customer_id:sale\?\.customer_id\?\?m2oId\(picking\?\.partner_id\)/);
 assert.match(sync,/refresh_customer_delivery_geography_v1/);
-assert.match(classifier,/auth\.role\(\) <> 'service_role'/);
+assert.match(classifier,/auth\.role\(\) is distinct from 'service_role'/);
 assert.match(classifier,/geography_area_keywords/);
 assert.match(orderShipping,/primary key \(company_id, order_id\)/);
 assert.match(orderGeo,/otc_order_shipping_dimension sh/);
@@ -40,7 +40,7 @@ assert.match(sync,/order_shipping_written:orderShippingWritten/);
 assert.match(sync,/refresh_customer_geography_dimension_v1/);
 assert.match(sync,/customer_id:sale\?\.customer_id\?\?m2oId\(move\?\.partner_id\)/);
 assert.doesNotMatch(sync,/customer_id:m2oId\(move\?\.partner_id\)\?\?sale\?\.customer_id/);
-assert.match(customerRefresh,/auth\.role\(\)<>\'service_role\'/);
+assert.match(customerRefresh,/auth\.role\(\) is distinct from 'service_role'/);
 assert.match(customerInit,/scoped_company_id/);
 assert.match(customerRefresh,/scoped_company_id/);
 assert.match(customerInit,/geo\.company_id is null or geo\.company_id=scope\.company_id/);
