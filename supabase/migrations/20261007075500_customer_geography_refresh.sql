@@ -16,12 +16,17 @@ begin
     area_code,area_name_ar,geography_source,geography_confidence,needs_review,
     source_customer_write_date,refreshed_at
   )
-  select g.customer_id,g.company_id,g.customer_name,g.governorate_code,g.governorate_name_ar,
+  select g.customer_id,g.scoped_company_id,g.customer_name,g.governorate_code,g.governorate_name_ar,
          g.area_code,g.area_name_ar,g.geography_source,g.geography_confidence,g.needs_review,
          c.write_date,now()
-  from public.customer_geography_odoo18 g
+  from (
+    select geo.*, scope.company_id as scoped_company_id
+    from public.customer_geography_odoo18 geo
+    cross join (values (1::bigint),(2::bigint)) as scope(company_id)
+    where geo.company_id is null or geo.company_id=scope.company_id
+  ) g
   left join public.customer_master_odoo18 c
-    on c.customer_id=g.customer_id and c.company_id=g.company_id
+    on c.customer_id=g.customer_id and c.company_id is not distinct from g.company_id
   on conflict (customer_id,company_id) do update set
     customer_name=excluded.customer_name,
     governorate_code=excluded.governorate_code,
