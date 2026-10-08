@@ -18,7 +18,7 @@ begin
   set area_code=null,area_name_ar=null,governorate_code=null,
       governorate_name_ar=null,geography_confidence=null,
       geography_source='odoo_delivery_partner',needs_review=true
-  where geography_source in ('odoo_delivery_partner','delivery_address_keyword_match');
+  where geography_source in ('odoo_delivery_partner','delivery_address_keyword_match','delivery_state_only');
   with address_text as (
     select d.company_id,d.delivery_partner_id,
       lower(concat_ws(' ',d.street,d.street2,d.city,d.state_name)) as geo_text
@@ -63,7 +63,31 @@ begin
   where r.rn=1 and d.company_id=r.company_id
     and d.delivery_partner_id=r.delivery_partner_id;
   get diagnostics v_matched=row_count;
-  return jsonb_build_object('addresses_classified',v_matched);
+  -- State-level geography is useful even if no area keyword matched.
+  -- Never infer an area from the commercial customer's address.
+  update public.customer_delivery_address_dimension d
+  set governorate_code=case
+        when d.state_name ilike 'Cairo%' then 'CAIRO'
+        when d.state_name ilike 'Giza%' then 'GIZA'
+        when d.state_name ilike 'Qalyubia%' then 'QALYUBIA'
+        when d.state_name ilike 'Al Sharqia%' then 'SHARQIA'
+        when d.state_name ilike 'Alexandria%' then 'ALEXANDRIA'
+        when d.state_name ilike 'Aswan%' then 'ASWAN'
+        else null end,
+      governorate_name_ar=case
+        when d.state_name ilike 'Cairo%' then 'القاهرة'
+        when d.state_name ilike 'Giza%' then 'الجيزة'
+        when d.state_name ilike 'Qalyubia%' then 'القليوبية'
+        when d.state_name ilike 'Al Sharqia%' then 'الشرقية'
+        when d.state_name ilike 'Alexandria%' then 'الإسكندرية'
+        when d.state_name ilike 'Aswan%' then 'أسوان'
+        else null end,
+      geography_source='delivery_state_only',
+      geography_confidence=0.55,needs_review=true,refreshed_at=now()
+  where d.area_code is null and d.governorate_code is null
+    and d.geography_source='odoo_delivery_partner'
+    and (d.state_name ilike any(array['Cairo%','Giza%','Qalyubia%','Al Sharqia%','Alexandria%','Aswan%']));
+  return jsonb_build_object('addresses_area_classified',v_matched);
 end;
 $$;
 revoke all on function public.refresh_customer_delivery_geography_v1() from public,anon,authenticated;
