@@ -38,6 +38,8 @@ assert.match(sync,/saleOrderMeta\.partner_shipping_id/);
 assert.match(sync,/const saleOrders:OdooSaleOrder\[\]/);
 assert.match(sync,/order_shipping_written:orderShippingWritten/);
 assert.match(sync,/refresh_customer_geography_dimension_v1/);
+assert.match(sync,/customer_id:sale\?\.customer_id\?\?m2oId\(move\?\.partner_id\)/);
+assert.doesNotMatch(sync,/customer_id:m2oId\(move\?\.partner_id\)\?\?sale\?\.customer_id/);
 assert.match(customerRefresh,/auth\.role\(\)<>\'service_role\'/);
 assert.match(customerInit,/scoped_company_id/);
 assert.match(customerRefresh,/scoped_company_id/);
