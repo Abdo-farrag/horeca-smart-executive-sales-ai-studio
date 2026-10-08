@@ -132,6 +132,19 @@ Deno.serve(async(req:Request)=>{
     const originalMoveIds=uniqueNumbers(returnMoves.map((m)=>m2oId(m.origin_returned_move_id)));
     const originalMoves=originalMoveIds.length ? await readAll<StockMove>(odooUrl,odooDb,uid,apiKey,"stock.move",[["id","in",originalMoveIds]],[...moveFields],companyIds) : [];
     const originalMoveMap=new Map(originalMoves.map((m)=>[m.id,m]));
+    // Original outbound pickings may predate the sync window.
+    const originalPickingIds=uniqueNumbers(originalMoves.map((m)=>m2oId(m.picking_id))).filter((id)=>!pickingMap.has(id));
+    const originalPickings:StockPicking[]=[];
+    for(const batch of chunks(originalPickingIds,400)){
+      const rows=await readAll<StockPicking>(odooUrl,odooDb,uid,apiKey,"stock.picking",[["id","in",batch],["company_id","in",companyIds]],["id","name","partner_id","company_id","origin"],companyIds);
+      originalPickings.push(...rows);
+    }
+    const originalPickingMap=new Map([...pickings,...originalPickings].map((p)=>[p.id,p]));
+    const extraOriginalPartnerIds=uniqueNumbers(originalPickings.map((p)=>m2oId(p.partner_id))).filter((id)=>!deliveryPartnerMap.has(id));
+    for(const batch of chunks(extraOriginalPartnerIds,400)){
+      const partners=await readAll<Partner>(odooUrl,odooDb,uid,apiKey,"res.partner",[["id","in",batch]],partnerFields,companyIds);
+      for(const partner of partners) deliveryPartnerMap.set(partner.id,partner);
+    }
     const returnsWithOriginalResolved=returnMoves.filter((m)=>originalMoveMap.has(m2oId(m.origin_returned_move_id)??-1)).length;
     const returnsWithSaleLine=returnMoves.filter((m)=>{const original=originalMoveMap.get(m2oId(m.origin_returned_move_id)??-1); return Boolean(original && hasSaleLineId && m2oId(original.sale_line_id));}).length;
 
@@ -167,6 +180,8 @@ Deno.serve(async(req:Request)=>{
       invoice_multi_sale_line_count:invoiceMultiSaleLineCount,
       distinct_delivery_partner_count:deliveryPartnerIds.length,
       delivery_partner_details_resolved_count:deliveryPartners.length,
+      return_original_picking_lookup_count:originalPickings.length,
+      return_original_delivery_partner_lookup_count:extraOriginalPartnerIds.length,
     };
     if(mode === "dry_run") return json({success:true,mode:"dry_run",caller_role:callerRole,database:odooDb,companies:companyIds,start_date:startDate,end_date:endDate,missing_fields:missingFields,diagnostics,writes_performed:0});
 
@@ -229,7 +244,7 @@ Deno.serve(async(req:Request)=>{
       saleCustomersByOrigin.set(key,customers);
     }
     const addressRowsByKey=new Map<string,JsonRecord>();
-    for(const picking of pickings){
+    for(const picking of [...pickings,...originalPickings]){
       const partnerId=m2oId(picking.partner_id), companyId=m2oId(picking.company_id);
       if(partnerId==null || companyId==null) continue;
       const partner=deliveryPartnerMap.get(partnerId);
@@ -285,8 +300,10 @@ Deno.serve(async(req:Request)=>{
     const returnRows=returnMoves.map((move)=>{
       const picking=pickingMap.get(m2oId(move.picking_id)??-1), originalMoveId=m2oId(move.origin_returned_move_id), originalMove=originalMoveId?originalMoveMap.get(originalMoveId):undefined;
       const originalSaleLineId=hasSaleLineId?m2oId(originalMove?.sale_line_id):null, priorDelivery=originalMoveId?deliveryByMoveId.get(originalMoveId):undefined, saleLineId=originalSaleLineId??priorDelivery?.sale_order_line_id??null;
+      const originalPicking=originalMove?originalPickingMap.get(m2oId(originalMove.picking_id)??-1):undefined;
+      const originalDeliveryPartnerId=m2oId(originalPicking?.partner_id);
       const {sale,salespersonId}=lineContext(saleLineId), saleQty=num(sale?.qty_sold), unitValue=saleQty?num(sale?.subtotal)/saleQty:null, qty=num(move.quantity??move.product_uom_qty), confidence=originalSaleLineId?"direct":saleLineId?"inferred":"unmatched";
-      return {odoo_return_move_id:move.id,odoo_return_picking_id:m2oId(move.picking_id),return_picking_name:picking?.name??m2oName(move.picking_id),origin_returned_move_id:originalMoveId,sale_order_line_id:saleLineId,company_id:m2oId(picking?.company_id),customer_id:sale?.customer_id??null,delivery_partner_id:m2oId(picking?.partner_id),salesperson_id:salespersonId,product_id:m2oId(move.product_id),return_receipt_date:toIso(picking?.date_done),returned_qty:qty,estimated_operational_value:unitValue==null?null:Number((unitValue*qty).toFixed(6)),value_basis:unitValue==null?"missing":"sale_order_line_estimate",return_reason:null,source_state:move.state??"done",link_confidence:confidence,source_updated_at:toIso(move.write_date),last_seen_at:now,synced_at:now};
+      return {odoo_return_move_id:move.id,odoo_return_picking_id:m2oId(move.picking_id),return_picking_name:picking?.name??m2oName(move.picking_id),origin_returned_move_id:originalMoveId,sale_order_line_id:saleLineId,company_id:m2oId(picking?.company_id),customer_id:sale?.customer_id??null,delivery_partner_id:originalDeliveryPartnerId,return_partner_id:m2oId(picking?.partner_id),salesperson_id:salespersonId,product_id:m2oId(move.product_id),return_receipt_date:toIso(picking?.date_done),returned_qty:qty,estimated_operational_value:unitValue==null?null:Number((unitValue*qty).toFixed(6)),value_basis:unitValue==null?"missing":"sale_order_line_estimate",return_reason:null,source_state:move.state??"done",link_confidence:confidence,source_updated_at:toIso(move.write_date),last_seen_at:now,synced_at:now};
     });
     const invoiceRows=accountLines.map((line)=>{
       const move=accountMoveMap.get(m2oId(line.move_id)??-1), saleLineIds=(line.sale_line_ids??[]).map(Number).filter(Number.isFinite), singleSaleLineId=saleLineIds.length===1?saleLineIds[0]:null, {sale,salespersonId}=lineContext(singleSaleLineId);
