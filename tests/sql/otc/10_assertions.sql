@@ -27,6 +27,20 @@ begin
   end if;
 end $$;
 
+-- Check SQL role grants, not only a simulated JWT claim.
+-- The authenticated role must be unable to call service-only refresh RPCs.
+set role authenticated;
+do $auth_check$
+declare blocked boolean:=false;
+begin
+  begin
+    perform public.refresh_customer_delivery_geography_v1();
+  exception when insufficient_privilege then blocked:=true;
+  end;
+  if not blocked then raise exception 'authenticated SQL role executed privileged refresh'; end if;
+end $auth_check$;
+reset role;
+
 insert into public.customer_delivery_address_dimension
 (company_id,customer_id,delivery_partner_id,delivery_partner_name,street,city,state_name,geography_source,needs_review)
 values
