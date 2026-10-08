@@ -287,6 +287,26 @@ Deno.serve(async(req:Request)=>{
       customer_id:m2oId(order.partner_id),delivery_partner_id:m2oId(order.partner_shipping_id),
       source_updated_at:toIso(order.write_date),refreshed_at:now
     })).filter((order)=>order.company_id!=null);
+    // A shared delivery partner can serve multiple commercial customers.
+    // Keep customer_id null rather than arbitrarily assigning it to the first order.
+    const addressCustomerCandidates=new Map<string,Set<number>>();
+    const addAddressCustomer=(companyId:number|null,partnerId:number|null,customerId:number|null)=>{
+      if(companyId==null||partnerId==null||customerId==null) return;
+      const key=`${companyId}:${partnerId}`;
+      const candidates=addressCustomerCandidates.get(key)??new Set<number>();
+      candidates.add(customerId);
+      addressCustomerCandidates.set(key,candidates);
+    };
+    for(const picking of [...pickings,...originalPickings]){
+      const companyId=m2oId(picking.company_id),partnerId=m2oId(picking.partner_id);
+      const customers=saleCustomersByOrigin.get(`${companyId}:${picking.origin??""}`);
+      if(customers?.size===1) addAddressCustomer(companyId,partnerId,[...customers][0]);
+    }
+    for(const order of saleOrders) addAddressCustomer(m2oId(order.company_id),m2oId(order.partner_shipping_id),m2oId(order.partner_id));
+    for(const [key,row] of addressRowsByKey){
+      const candidates=addressCustomerCandidates.get(key);
+      row.customer_id=candidates?.size===1?[...candidates][0]:null;
+    }
     const deliveryAddressRows=[...addressRowsByKey.values()];
     const deliveryRows=deliveryMoves.map((move)=>{
       const picking=pickingMap.get(m2oId(move.picking_id)??-1);
