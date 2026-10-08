@@ -167,7 +167,7 @@ begin
     with cohort as (
       select v.*
       from public.otc_sale_line_reconciliation_v1 v
-      where v.order_date::date between p_start_date and p_end_date
+      where v.order_date >= p_start_date::timestamptz and v.order_date < (p_end_date + 1)::timestamptz
         and public.otc_scope_row_allowed(v.company_id, v.salesperson_id)
         and (p_company_name is null or v.company_name = p_company_name)
         and (p_salesperson_id is null or v.salesperson_id = p_salesperson_id)
@@ -234,7 +234,7 @@ begin
     with ordered as (
       select v.*
       from public.otc_sale_line_reconciliation_v1 v
-      where v.order_date::date between p_start_date and p_end_date
+      where v.order_date >= p_start_date::timestamptz and v.order_date < (p_end_date + 1)::timestamptz
         and public.otc_scope_row_allowed(v.company_id, v.salesperson_id)
         and (p_company_name is null or v.company_name = p_company_name)
         and (p_salesperson_id is null or v.salesperson_id = p_salesperson_id)
