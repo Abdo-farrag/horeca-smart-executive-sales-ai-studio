@@ -104,6 +104,6 @@ select set_config('request.jwt.claim.role','authenticated',false);
 select date_basis,ordered_value,net_delivered_value,net_invoiced_value
 from public.analytics_order_to_cash_kpis_v1('2026-10-01','2026-10-31','MAS');
 select period_start,ordered_value,net_delivered_value
-from public.analytics_order_to_cash_trend_v1('2026-10-01','2026-10-31','order',null,null,null,null,null,null,null,null,'day');
+from public.analytics_order_to_cash_trend_v1('2026-10-01','2026-10-31',p_date_basis=>'order',p_grain=>'day');
 
 select 'OTC_POSTGRES_ASSERTIONS_PASSED' as result;
