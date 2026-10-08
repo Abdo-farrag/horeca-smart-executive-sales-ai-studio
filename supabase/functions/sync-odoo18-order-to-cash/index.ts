@@ -83,14 +83,15 @@ Deno.serve(async(req:Request)=>{
     const companyIds=requestedCompanies.filter((id)=>ALLOWED_COMPANIES.includes(id));
     if(!companyIds.length) throw new Error("No authorized OTC company ids requested");
 
-    const odooUrl=requiredEnv("ODOO_URL");
-    const odooDb=Deno.env.get("ODOO_DB")?.trim() || "DB-LIVE";
-    const username=requiredEnv("ODOO_USERNAME");
-    const apiKey=requiredEnv("ODOO_API_KEY");
+    // Validate caller before loading Odoo credentials or touching the upstream ERP.
     const supabaseUrl=requiredEnv("SUPABASE_URL");
     const serviceRoleKey=requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
     supabase=createClient(supabaseUrl,serviceRoleKey,{auth:{persistSession:false,autoRefreshToken:false}});
     const callerRole=await assertPrivilegedCaller(req,supabase,serviceRoleKey);
+    const odooUrl=requiredEnv("ODOO_URL");
+    const odooDb=Deno.env.get("ODOO_DB")?.trim() || "DB-LIVE";
+    const username=requiredEnv("ODOO_USERNAME");
+    const apiKey=requiredEnv("ODOO_API_KEY");
 
     const uid=await rpc<number|false>(odooUrl,"common","authenticate",[odooDb,username,apiKey,{}]);
     if(!uid) throw new Error("Odoo authentication failed");
