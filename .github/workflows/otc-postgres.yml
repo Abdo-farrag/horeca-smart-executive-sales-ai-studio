@@ -53,6 +53,8 @@ jobs:
           psql -X -v ON_ERROR_STOP=1 -c "select current_database(), current_user, version();"
       - name: Create synthetic Odoo/Supabase baseline (no production data)
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/00_fixture.sql
+      - name: Create existing production-shaped view and RPC contracts
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/01_existing_contract.sql
       - name: Apply every OTC October 7 migration in filename order
         run: |
           set -euo pipefail
