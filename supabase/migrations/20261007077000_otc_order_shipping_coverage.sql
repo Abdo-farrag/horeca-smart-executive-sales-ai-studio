@@ -4,9 +4,11 @@ create or replace view public.otc_order_shipping_coverage_v1
 with (security_invoker=true)
 as
 with orders as (
-  select distinct company_id,order_id,customer_id
+  select company_id,order_id,
+         case when count(distinct customer_id)=1 then min(customer_id) else null end as customer_id
   from public.product_sales_from_june1
   where company_id in (1,2) and order_id is not null
+  group by company_id,order_id
 ), classified as (
   select o.company_id,o.order_id,
     case
