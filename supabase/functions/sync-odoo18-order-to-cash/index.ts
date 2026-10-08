@@ -73,9 +73,10 @@ Deno.serve(async(req:Request)=>{
   if(req.method !== "POST") return json({error:"Use POST"},405);
   const startedAt=new Date().toISOString();
   let supabase:ReturnType<typeof createClient>|null=null;
+  let mode:"sync"|"dry_run"="dry_run";
   try{
     const body=await req.json().catch(()=>({})) as JsonRecord;
-    const mode=body.mode === "sync" ? "sync" : "dry_run";
+    mode=body.mode === "sync" ? "sync" : "dry_run";
     const startDate=typeof body.start_date === "string" && body.start_date ? body.start_date : DEFAULT_CUTOFF;
     const endDate=typeof body.end_date === "string" && body.end_date ? body.end_date : null;
     const requestedCompanies=Array.isArray(body.company_ids) ? body.company_ids.map(Number) : ALLOWED_COMPANIES;
@@ -344,7 +345,15 @@ Deno.serve(async(req:Request)=>{
     return json({success:true,mode:"sync",caller_role:callerRole,database:odooDb,start_date:startDate,end_date:endDate,...summary});
   }catch(error){
     const message=error instanceof Error?error.message:String(error);
-    if(supabase){await supabase.from("sync_logs").insert({sync_type:"order_to_cash_returns",status:"error",message,rows_count:0,started_at:startedAt,finished_at:new Date().toISOString()});}
+    // Dry runs must be read-only, including their failure path. Unauthorized callers
+    // must not generate writes via a service-role client either.
+    if(supabase && mode === "sync" && message !== "AUTH_REQUIRED" && message !== "SYNC_FORBIDDEN"){
+      try{
+        await supabase.from("sync_logs").insert({sync_type:"order_to_cash_returns",status:"error",message,rows_count:0,started_at:startedAt,finished_at:new Date().toISOString()});
+      }catch(logError){
+        console.error("OTC sync failure logging failed",logError);
+      }
+    }
     const status=message === "AUTH_REQUIRED" ? 401 : message === "SYNC_FORBIDDEN" ? 403 : 500;
     return json({success:false,error:message},status);
   }
