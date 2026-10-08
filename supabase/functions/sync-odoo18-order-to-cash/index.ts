@@ -195,7 +195,39 @@ Deno.serve(async(req:Request)=>{
       return {sale,salespersonId:orderId ? salespersonByOrder.get(orderId) ?? null : null};
     };
 
-    const now=new Date().toISOString();\n    const deliveryAddressRows=deliveryPartners.map((partner)=>{\n      const companyId=m2oId(partner.company_id);\n      const customerId=m2oId(partner.parent_id) ?? partner.id;\n      return {company_id:companyId ?? companyIds[0],customer_id:customerId,delivery_partner_id:partner.id,delivery_partner_name:partner.name??null,street:partner.street??null,street2:partner.street2??null,city:partner.city??null,state_id:m2oId(partner.state_id),state_name:m2oName(partner.state_id),geography_source:"odoo_delivery_partner",geography_confidence:null,needs_review:true,source_updated_at:toIso(partner.write_date),refreshed_at:now};\n    });
+    const now=new Date().toISOString();\n    // res.partner.company_id is often null for shared Odoo contacts.
+    // Derive the company from the picking, never from the first requested company.
+    // Resolve the commercial customer from sale-order lines only when unambiguous.
+    const saleCustomersByOrigin=new Map<string,Set<number>>();
+    for(const line of fallbackSaleLines){
+      if(!line.order_name || line.company_id==null || line.customer_id==null) continue;
+      const key=`${Number(line.company_id)}:${line.order_name}`;
+      const customers=saleCustomersByOrigin.get(key)??new Set<number>();
+      customers.add(Number(line.customer_id));
+      saleCustomersByOrigin.set(key,customers);
+    }
+    const addressRowsByKey=new Map<string,JsonRecord>();
+    for(const picking of pickings){
+      const partnerId=m2oId(picking.partner_id), companyId=m2oId(picking.company_id);
+      if(partnerId==null || companyId==null) continue;
+      const partner=deliveryPartnerMap.get(partnerId);
+      if(!partner) continue;
+      const possibleCustomers=saleCustomersByOrigin.get(`${companyId}:${picking.origin??""}`);
+      const resolvedCustomer=possibleCustomers?.size===1?[...possibleCustomers][0]:null;
+      const key=`${companyId}:${partnerId}`;
+      const previous=addressRowsByKey.get(key);
+      addressRowsByKey.set(key,{
+        company_id:companyId,
+        customer_id:resolvedCustomer??previous?.customer_id??null,
+        delivery_partner_id:partner.id,
+        delivery_partner_name:partner.name??null,
+        street:partner.street??null,street2:partner.street2??null,city:partner.city??null,
+        state_id:m2oId(partner.state_id),state_name:m2oName(partner.state_id),
+        geography_source:"odoo_delivery_partner",geography_confidence:null,
+        needs_review:true,source_updated_at:toIso(partner.write_date),refreshed_at:now
+      });
+    }
+    const deliveryAddressRows=[...addressRowsByKey.values()];
     const deliveryRows=deliveryMoves.map((move)=>{
       const picking=pickingMap.get(m2oId(move.picking_id)??-1);
       const directSaleLineId=hasSaleLineId ? m2oId(move.sale_line_id) : null;
