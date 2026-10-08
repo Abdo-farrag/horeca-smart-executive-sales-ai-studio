@@ -248,7 +248,7 @@ begin
       select coalesce(sum(x.delivered_qty),0)::numeric q, coalesce(sum(x.delivered_value),0)::numeric v
       from public.otc_delivery_lines x
       left join public.product_knowledge pk on pk.product_id=x.product_id
-      left join public.customer_geography_dimension g on g.customer_id=x.customer_id and g.company_id=x.company_id
+      left join public.otc_delivery_geography_v1 g on g.odoo_move_id=x.odoo_move_id
       where x.delivery_date::date between p_start_date and p_end_date
         and public.otc_scope_row_allowed(x.company_id,x.salesperson_id)
         and (p_company_name is null or case x.company_id when 1 then 'MAS' when 2 then 'Horeca Smart' end = p_company_name)
@@ -263,7 +263,7 @@ begin
              coalesce(sum(x.estimated_operational_value) filter (where not exists (select 1 from public.otc_invoice_lines i where i.move_type='out_refund' and i.source_state='posted' and i.sale_order_line_id=x.sale_order_line_id and i.product_id=x.product_id and i.invoice_date<=p_end_date)),0)::numeric uncredited_value
       from public.otc_return_lines x
       left join public.product_knowledge pk on pk.product_id=x.product_id
-      left join public.customer_geography_dimension g on g.customer_id=x.customer_id and g.company_id=x.company_id
+      left join public.otc_return_geography_v1 g on g.odoo_return_move_id=x.odoo_return_move_id
       where x.return_receipt_date::date between p_start_date and p_end_date
         and public.otc_scope_row_allowed(x.company_id,x.salesperson_id)
         and (p_company_name is null or case x.company_id when 1 then 'MAS' when 2 then 'Horeca Smart' end = p_company_name)
@@ -293,7 +293,7 @@ begin
       select x.link_confidence
       from public.otc_delivery_lines x
       left join public.product_knowledge pk on pk.product_id=x.product_id
-      left join public.customer_geography_dimension g on g.customer_id=x.customer_id and g.company_id=x.company_id
+      left join public.otc_delivery_geography_v1 g on g.odoo_move_id=x.odoo_move_id
       where x.delivery_date::date between p_start_date and p_end_date
         and public.otc_scope_row_allowed(x.company_id,x.salesperson_id)
         and (p_company_name is null or case x.company_id when 1 then 'MAS' when 2 then 'Horeca Smart' end = p_company_name)
@@ -308,7 +308,7 @@ begin
       select x.link_confidence
       from public.otc_return_lines x
       left join public.product_knowledge pk on pk.product_id=x.product_id
-      left join public.customer_geography_dimension g on g.customer_id=x.customer_id and g.company_id=x.company_id
+      left join public.otc_return_geography_v1 g on g.odoo_return_move_id=x.odoo_return_move_id
       where x.return_receipt_date::date between p_start_date and p_end_date
         and public.otc_scope_row_allowed(x.company_id,x.salesperson_id)
         and (p_company_name is null or case x.company_id when 1 then 'MAS' when 2 then 'Horeca Smart' end = p_company_name)
