@@ -9,7 +9,7 @@ set search_path = public
 as $$
 declare v_matched bigint;
 begin
-  if auth.role() <> 'service_role' then
+  if auth.role() is distinct from 'service_role' then
     raise exception 'SYNC_FORBIDDEN' using errcode='42501';
   end if;
   -- Clear stale keyword matches when a delivery address has changed.
