@@ -13,6 +13,7 @@ const orderGeo=read("supabase/migrations/20261007076000_otc_order_shipping_geogr
 const customerRefresh=read("supabase/migrations/20261007075500_customer_geography_refresh.sql");
 const customerInit=read("supabase/migrations/20261007071000_customer_geography_dimension.sql");
 const returnPickup=read("supabase/migrations/20261007072500_otc_return_pickup_partner.sql");
+const coverage=read("supabase/migrations/20261007077000_otc_order_shipping_coverage.sql");
 assert.match(migration,/create or replace function public\.analytics_order_to_cash_kpis_v1/);
 assert.match(migration,/create or replace function public\.analytics_order_to_cash_trend_v1/);
 assert.doesNotMatch(migration,/left join public\.customer_geography_odoo18/);
@@ -42,4 +43,10 @@ assert.match(returnPickup,/add column if not exists return_partner_id bigint/);
 assert.match(sync,/const originalPickingMap=new Map/);
 assert.match(sync,/originalDeliveryPartnerId=m2oId\(originalPicking\?\.partner_id\)/);
 assert.match(sync,/delivery_partner_id:originalDeliveryPartnerId,return_partner_id:m2oId\(picking\?\.partner_id\)/);
+assert.match(sync,/const addressCustomerCandidates=new Map/);
+assert.match(sync,/row.customer_id=candidates/);
+assert.match(coverage,/shipping_not_synced/);
+assert.match(coverage,/shipping_partner_missing/);
+assert.match(coverage,/customer_geography_fallback/);
+assert.doesNotMatch(coverage,/delivery_area_verified_by_keyword/);
 console.log("OTC multi-address, order-shipping and original-return geography contracts passed");
