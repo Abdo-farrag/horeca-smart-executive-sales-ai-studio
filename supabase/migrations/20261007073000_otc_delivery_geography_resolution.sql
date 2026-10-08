@@ -11,12 +11,12 @@ select
   d.company_id,
   d.customer_id,
   d.delivery_partner_id,
-  coalesce(a.governorate_code, c.governorate_code) as governorate_code,
-  coalesce(a.governorate_name_ar, c.governorate_name_ar) as governorate_name_ar,
-  coalesce(a.area_code, c.area_code) as area_code,
-  coalesce(a.area_name_ar, c.area_name_ar) as area_name_ar,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.governorate_code else c.governorate_code end as governorate_code,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.governorate_name_ar else c.governorate_name_ar end as governorate_name_ar,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.area_code else c.area_code end as area_code,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.area_name_ar else c.area_name_ar end as area_name_ar,
   case
-    when a.area_code is not null or a.governorate_code is not null then 'delivery_address'
+    when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then 'delivery_address'
     when c.area_code is not null or c.governorate_code is not null then 'customer_fallback'
     else 'unmapped'
   end as geography_resolution_source
@@ -35,12 +35,12 @@ select
   r.company_id,
   r.customer_id,
   r.delivery_partner_id,
-  coalesce(a.governorate_code, c.governorate_code) as governorate_code,
-  coalesce(a.governorate_name_ar, c.governorate_name_ar) as governorate_name_ar,
-  coalesce(a.area_code, c.area_code) as area_code,
-  coalesce(a.area_name_ar, c.area_name_ar) as area_name_ar,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.governorate_code else c.governorate_code end as governorate_code,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.governorate_name_ar else c.governorate_name_ar end as governorate_name_ar,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.area_code else c.area_code end as area_code,
+  case when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then a.area_name_ar else c.area_name_ar end as area_name_ar,
   case
-    when a.area_code is not null or a.governorate_code is not null then 'delivery_address'
+    when (a.area_code is not null or (c.area_code is null and a.governorate_code is not null)) then 'delivery_address'
     when c.area_code is not null or c.governorate_code is not null then 'customer_fallback'
     else 'unmapped'
   end as geography_resolution_source
