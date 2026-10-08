@@ -8,7 +8,8 @@ type StockMove = { id:number; picking_id?:Many2One; product_id?:Many2One; produc
 type AccountMove = { id:number; name?:string; move_type?:string; state?:string; date?:string; invoice_date?:string; invoice_origin?:string; company_id?:Many2One; partner_id?:Many2One; invoice_user_id?:Many2One; reversed_entry_id?:Many2One; currency_id?:Many2One; write_date?:string };
 type AccountMoveLine = { id:number; move_id?:Many2One; product_id?:Many2One; quantity?:number|string; price_subtotal?:number|string; price_total?:number|string; sale_line_ids?:number[]; display_type?:string|false|null; write_date?:string };
 type SaleLineSnapshot = { odoo_line_id:number; order_id:number|null; order_name:string|null; customer_id:number|null; customer_name:string|null; product_id:number|null; product_name:string|null; company_id:number|null; company_name:string|null; qty_sold:number|string|null; subtotal:number|string|null };
-type SecureOrder = { order_id:number; salesperson_id:number|null };\ntype Partner = { id:number; name?:string; parent_id?:Many2One; street?:string; street2?:string; city?:string; state_id?:Many2One; company_id?:Many2One; write_date?:string };
+type SecureOrder = { order_id:number; salesperson_id:number|null };
+type Partner = { id:number; name?:string; parent_id?:Many2One; street?:string; street2?:string; city?:string; state_id?:Many2One; company_id?:Many2One; write_date?:string };
 
 const DEFAULT_CUTOFF = "2026-06-01";
 const ALLOWED_COMPANIES = [1, 2];
@@ -95,7 +96,8 @@ Deno.serve(async(req:Request)=>{
     const stockMoveMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"stock.move","fields_get",[],{attributes:["type"]});
     const pickingMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"stock.picking","fields_get",[],{attributes:["type"]});
     const accountMoveMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"account.move","fields_get",[],{attributes:["type"]});
-    const accountLineMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"account.move.line","fields_get",[],{attributes:["type"]});\n    const partnerMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"res.partner","fields_get",[],{attributes:["type"]});
+    const accountLineMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"account.move.line","fields_get",[],{attributes:["type"]});
+    const partnerMeta=await executeKw<Record<string,unknown>>(odooUrl,odooDb,uid,apiKey,"res.partner","fields_get",[],{attributes:["type"]});
     const hasSaleLineId=Boolean(stockMoveMeta.sale_line_id);
     const required={
       "stock.picking":["id","name","picking_type_code","origin","partner_id","company_id","state","date_done","return_id"],
@@ -111,7 +113,11 @@ Deno.serve(async(req:Request)=>{
     const dateDoneDomain:unknown[]=[["state","=","done"],["company_id","in",companyIds],["date_done",">=",`${startDate} 00:00:00`]];
     if(endDate) dateDoneDomain.push(["date_done","<",`${endDate} 23:59:59`]);
     const pickings=await readAll<StockPicking>(odooUrl,odooDb,uid,apiKey,"stock.picking",dateDoneDomain,["id","name","picking_type_code","origin","partner_id","company_id","state","date_done","return_id"],companyIds);
-    const pickingMap=new Map(pickings.map((p)=>[p.id,p]));\n    const deliveryPartnerIds=uniqueNumbers(pickings.map((p)=>m2oId(p.partner_id)));\n    const partnerFields=["id","name","parent_id","street","street2","city","state_id","company_id","write_date"].filter((field)=>Boolean(partnerMeta[field]));\n    const deliveryPartners=deliveryPartnerIds.length ? await readAll<Partner>(odooUrl,odooDb,uid,apiKey,"res.partner",[["id","in",deliveryPartnerIds]],partnerFields,companyIds) : [];\n    const deliveryPartnerMap=new Map(deliveryPartners.map((p)=>[p.id,p]));
+    const pickingMap=new Map(pickings.map((p)=>[p.id,p]));
+    const deliveryPartnerIds=uniqueNumbers(pickings.map((p)=>m2oId(p.partner_id)));
+    const partnerFields=["id","name","parent_id","street","street2","city","state_id","company_id","write_date"].filter((field)=>Boolean(partnerMeta[field]));
+    const deliveryPartners=deliveryPartnerIds.length ? await readAll<Partner>(odooUrl,odooDb,uid,apiKey,"res.partner",[["id","in",deliveryPartnerIds]],partnerFields,companyIds) : [];
+    const deliveryPartnerMap=new Map(deliveryPartners.map((p)=>[p.id,p]));
     const pickingIds=pickings.map((p)=>p.id);
     const moveFields=["id","picking_id","product_id","product_uom_qty","quantity","origin_returned_move_id","state","write_date"];
     if(hasSaleLineId) moveFields.push("sale_line_id");
@@ -155,7 +161,9 @@ Deno.serve(async(req:Request)=>{
       invoice_no_sale_line_count:invoiceNoSaleLine,
       invoice_single_sale_line_count:invoiceSingleSaleLine,
       invoice_single_sale_line_pct:pct(invoiceSingleSaleLine,accountLines.length),
-      invoice_multi_sale_line_count:invoiceMultiSaleLineCount,\n      distinct_delivery_partner_count:deliveryPartnerIds.length,\n      delivery_partner_details_resolved_count:deliveryPartners.length,
+      invoice_multi_sale_line_count:invoiceMultiSaleLineCount,
+      distinct_delivery_partner_count:deliveryPartnerIds.length,
+      delivery_partner_details_resolved_count:deliveryPartners.length,
     };
     if(mode === "dry_run") return json({success:true,mode:"dry_run",caller_role:callerRole,database:odooDb,companies:companyIds,start_date:startDate,end_date:endDate,missing_fields:missingFields,diagnostics,writes_performed:0});
 
@@ -195,7 +203,8 @@ Deno.serve(async(req:Request)=>{
       return {sale,salespersonId:orderId ? salespersonByOrder.get(orderId) ?? null : null};
     };
 
-    const now=new Date().toISOString();\n    // res.partner.company_id is often null for shared Odoo contacts.
+    const now=new Date().toISOString();
+    // res.partner.company_id is often null for shared Odoo contacts.
     // Derive the company from the picking, never from the first requested company.
     // Resolve the commercial customer from sale-order lines only when unambiguous.
     const saleCustomersByOrigin=new Map<string,Set<number>>();
@@ -250,7 +259,8 @@ Deno.serve(async(req:Request)=>{
     const upsert=async(table:string,rows:JsonRecord[],conflict:string)=>{if(!rows.length) return 0; let written=0; for(const batch of chunks(rows,500)){const {error}=await supabase!.from(table).upsert(batch,{onConflict:conflict}); if(error) throw new Error(`${table} upsert failed: ${error.message}`); written+=batch.length;} return written;};
     const deliveryAddressesWritten=await upsert("customer_delivery_address_dimension",deliveryAddressRows,"company_id,delivery_partner_id");
     const {data:geoRefresh,error:geoRefreshError}=await supabase.rpc("refresh_customer_delivery_geography_v1");
-    if(geoRefreshError) throw new Error(`Delivery geography refresh failed: ${geoRefreshError.message}`);\n    const deliveriesWritten=await upsert("otc_delivery_lines",deliveryRows,"odoo_move_id"), returnsWritten=await upsert("otc_return_lines",returnRows,"odoo_return_move_id"), invoicesWritten=await upsert("otc_invoice_lines",invoiceRows,"account_move_line_id");
+    if(geoRefreshError) throw new Error(`Delivery geography refresh failed: ${geoRefreshError.message}`);
+    const deliveriesWritten=await upsert("otc_delivery_lines",deliveryRows,"odoo_move_id"), returnsWritten=await upsert("otc_return_lines",returnRows,"odoo_return_move_id"), invoicesWritten=await upsert("otc_invoice_lines",invoiceRows,"account_move_line_id");
     const finishedAt=new Date().toISOString();
     const summary={delivery_addresses_written:deliveryAddressesWritten,delivery_geography_refresh:geoRefresh,deliveries_written:deliveriesWritten,returns_written:returnsWritten,invoice_lines_written:invoicesWritten,diagnostics,no_historical_delete:true};
     const {error:logError}=await supabase.from("sync_logs").insert({sync_type:"order_to_cash_returns",status:"success",message:JSON.stringify(summary),rows_count:deliveriesWritten+returnsWritten+invoicesWritten,started_at:startedAt,finished_at:finishedAt});
