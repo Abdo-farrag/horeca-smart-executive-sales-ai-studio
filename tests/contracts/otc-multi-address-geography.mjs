@@ -58,4 +58,7 @@ assert.match(sync,/let mode:"sync"\|"dry_run"="dry_run"/);
 assert.match(sync,/if\(supabase && mode === "sync" && message !== "AUTH_REQUIRED" && message !== "SYNC_FORBIDDEN"\)/);
 assert.match(sync,/if\(mode === "dry_run"\) return json\(\{success:true/);
 assert.ok(sync.indexOf("const callerRole=await assertPrivilegedCaller") < sync.indexOf('const odooUrl=requiredEnv("ODOO_URL")'),"caller authorization must precede Odoo credentials");
+assert.match(sync,/OTC_AUTH_DENIED/);
+for(const reason of ["missing_authorization","unresolved_user_token","role_not_authorized"]) assert.ok(sync.includes(`reason:"${reason}"`));
+assert.doesNotMatch(sync,/console\.(?:log|warn|error)\([^\n]*(?:token|header|apiKey|serviceRoleKey)[,)\}]/i,"never log authorization secrets");
 console.log("OTC multi-address, order-shipping and original-return geography contracts passed");
