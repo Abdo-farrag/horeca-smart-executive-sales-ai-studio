@@ -53,16 +53,17 @@ async function readAll<T>(url:string,db:string,uid:number,apiKey:string,model:st
 async function assertPrivilegedCaller(req:Request,supabase:ReturnType<typeof createClient>,serviceRoleKey:string):Promise<string> {
   const header=req.headers.get("authorization") ?? "";
   const token=header.replace(/^Bearer\s+/i,"").trim();
-  if(!token) throw new Error("AUTH_REQUIRED");
+  if(!token){ console.warn("OTC_AUTH_DENIED", {reason:"missing_authorization"}); throw new Error("AUTH_REQUIRED"); }
   if(token === serviceRoleKey) return "service_role";
   const { data:{ user }, error:userError }=await supabase.auth.getUser(token);
-  if(userError || !user) throw new Error("AUTH_REQUIRED");
+  if(userError || !user){ console.warn("OTC_AUTH_DENIED", {reason:"unresolved_user_token"}); throw new Error("AUTH_REQUIRED"); }
   const { data:profile, error:profileError }=await supabase
     .from("app_user_roles")
     .select("role,is_active")
     .eq("user_id",user.id)
     .maybeSingle();
   if(profileError || !profile?.is_active || !["admin","manager"].includes(String(profile.role))) {
+    console.warn("OTC_AUTH_DENIED", {reason:"role_not_authorized"});
     throw new Error("SYNC_FORBIDDEN");
   }
   return String(profile.role);
