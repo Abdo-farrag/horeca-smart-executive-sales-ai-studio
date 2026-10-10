@@ -1,0 +1,70 @@
+name: OTC PostgreSQL Migration Tests
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - ".github/workflows/otc-postgres.yml"
+      - "supabase/migrations/2026100707*.sql"
+      - "tests/sql/otc/**"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - ".github/workflows/otc-postgres.yml"
+      - "supabase/migrations/2026100707*.sql"
+      - "tests/sql/otc/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  otc-postgres:
+    name: PostgreSQL 17 / OTC migrations + assertions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: otc_test_only
+          POSTGRES_DB: otc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d otc_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: otc_test
+      PGUSER: postgres
+      PGPASSWORD: otc_test_only
+      PGOPTIONS: "-c statement_timeout=30000 -c lock_timeout=5000"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify isolated test connection
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = localhost
+          psql -X -v ON_ERROR_STOP=1 -c "select current_database(), current_user, version();"
+      - name: Create synthetic Odoo/Supabase baseline (no production data)
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/00_fixture.sql
+      - name: Create existing production-shaped view and RPC contracts
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/01_existing_contract.sql
+      - name: Apply every OTC October 7 migration in filename order
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          migrations=(supabase/migrations/2026100707*.sql)
+          test "${#migrations[@]}" -ge 11
+          for file in "${migrations[@]}"; do
+            echo "::group::Apply $file"
+            psql -X -v ON_ERROR_STOP=1 -f "$file"
+            echo "::endgroup::"
+          done
+      - name: Assert geography, no fanout, returns, net values and permissions
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/10_assertions.sql
