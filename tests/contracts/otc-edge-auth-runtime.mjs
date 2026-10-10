@@ -12,6 +12,7 @@ let handler;
 let writes=0;
 let networkCalls=0;
 let allowMockOdoo=false;
+let populatedMock=false;
 let diagnosticReasons=[];
 let authorizedUser=null;
 let lookupRole=null;
@@ -54,7 +55,40 @@ runInNewContext(js,{
       assert.ok(fields,`unknown mocked model ${model}`);
       return {ok:true,json:async()=>({result:Object.fromEntries(fields.map(f=>[f,{type:"string"}]))})};
     }
-    if(method==="search_read") return {ok:true,json:async()=>({result:[]})};
+    if(method==="search_read"){
+      const domain=payload.params.args[5]?.[0]??[];
+      const fixtures={
+        "stock.picking":[
+          {id:501,name:"OUT/501",picking_type_code:"outgoing",partner_id:[901,"Delivery A"],company_id:[1,"MAS"],state:"done",date_done:"2026-10-01 12:00:00"},
+          {id:502,name:"RET/502",picking_type_code:"incoming",partner_id:[902,"Pickup B"],company_id:[1,"MAS"],state:"done",date_done:"2026-10-02 12:00:00"},
+        ],
+        "stock.move":[
+          {id:601,picking_id:[501,"OUT/501"],product_id:[701,"SKU"],quantity:10,origin_returned_move_id:false,sale_line_id:[801,"SOL"],state:"done"},
+          {id:602,picking_id:[502,"RET/502"],product_id:[701,"SKU"],quantity:2,origin_returned_move_id:[601,"Origin"],sale_line_id:false,state:"done"},
+        ],
+        "res.partner":[
+          {id:901,name:"Delivery A",street:"Test Street A"},
+          {id:902,name:"Pickup B",street:"Test Street B"},
+        ],
+        "account.move":[
+          {id:1001,name:"INV/1001",move_type:"out_invoice",state:"posted",company_id:[1,"MAS"],partner_id:[900,"Buyer"],invoice_date:"2026-10-01"},
+          {id:1002,name:"CR/1002",move_type:"out_refund",state:"posted",company_id:[1,"MAS"],partner_id:[900,"Buyer"],invoice_date:"2026-10-02"},
+        ],
+        "account.move.line":[
+          {id:1101,move_id:[1001,"INV/1001"],product_id:[701,"SKU"],quantity:10,price_subtotal:100,sale_line_ids:[801],display_type:"product"},
+          {id:1102,move_id:[1002,"CR/1002"],product_id:[701,"SKU"],quantity:2,price_subtotal:20,sale_line_ids:[801],display_type:"product"},
+        ],
+      };
+      let rows=populatedMock?(fixtures[model]??[]):[];
+      if(model==="stock.move" && domain.some(d=>d[0]==="id")){
+        rows=rows.filter(row=>domain.find(d=>d[0]==="id")[2].includes(row.id));
+      } else if(model==="stock.move"){
+        rows=rows.filter(row=>domain.find(d=>d[0]==="picking_id")?.[2].includes(row.picking_id[0]));
+      }
+      if(model==="res.partner") rows=rows.filter(row=>domain.find(d=>d[0]==="id")?.[2].includes(row.id));
+      if(model==="account.move.line") rows=rows.filter(row=>domain.find(d=>d[0]==="move_id")?.[2].includes(row.move_id[0]));
+      return {ok:true,json:async()=>({result:rows})};
+    }
     throw Error("unexpected Odoo method "+method);
   },
   console:{warn:(label,info)=>{assert.equal(label,"OTC_AUTH_DENIED");diagnosticReasons.push(info.reason);},error:()=>{},log:()=>{}},
@@ -112,6 +146,23 @@ assert.equal(completeDryRun.body.writes_performed,0);
 assert.equal(completeDryRun.body.diagnostics.delivery_moves_count,0);
 assert.equal(completeDryRun.body.diagnostics.invoice_lines_count,0);
 assert.ok(networkCalls>0,"mocked read-only Odoo API calls were expected");
+// Non-empty transactional flow: original outgoing delivery + incoming return +
+// posted customer invoice + credit note; the dry run is still strictly read-only.
+populatedMock=true;
+const populatedDryRun=await request("dry_run","valid-test-admin-token");
+assert.equal(populatedDryRun.status,200,JSON.stringify(populatedDryRun));
+assert.equal(populatedDryRun.body.writes_performed,0);
+const populatedDiagnostics=populatedDryRun.body.diagnostics;
+assert.equal(populatedDiagnostics.delivery_moves_count,1);
+assert.equal(populatedDiagnostics.delivery_direct_link_count,1);
+assert.equal(populatedDiagnostics.return_moves_count,1);
+assert.equal(populatedDiagnostics.return_original_move_resolved_count,1);
+assert.equal(populatedDiagnostics.return_sale_line_link_count,1);
+assert.equal(populatedDiagnostics.invoice_lines_count,2);
+assert.equal(populatedDiagnostics.invoice_single_sale_line_count,2);
+assert.equal(populatedDiagnostics.distinct_delivery_partner_count,2);
+assert.equal(writes,0,"populated dry-run must not write delivery, return, invoice or logs");
+populatedMock=false;
 allowMockOdoo=false;
 assert.deepEqual(diagnosticReasons,[
   "missing_authorization","unresolved_user_token","role_not_authorized",
