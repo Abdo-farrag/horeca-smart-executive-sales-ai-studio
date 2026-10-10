@@ -59,6 +59,12 @@ for(const mode of ["dry_run","sync"]){
   assert.equal(result.status,403);
   assert.equal(result.body.error,"SYNC_FORBIDDEN");
 }
+// A permitted dry run that fails before contacting Odoo must still perform zero writes.
+authorizedUser={id:"fake-admin-user"};
+lookupRole={role:"admin",is_active:true};
+const permittedDryRun=await request("dry_run","valid-test-admin-token");
+assert.equal(permittedDryRun.status,500);
+assert.match(permittedDryRun.body.error,/Missing required secret: ODOO_URL/);
 assert.deepEqual(diagnosticReasons,[
   "missing_authorization","unresolved_user_token","role_not_authorized",
   "missing_authorization","unresolved_user_token","role_not_authorized",
