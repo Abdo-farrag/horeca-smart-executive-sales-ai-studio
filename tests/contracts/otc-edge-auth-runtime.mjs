@@ -13,6 +13,7 @@ let writes=0;
 let networkCalls=0;
 let allowMockOdoo=false;
 let populatedMock=false;
+let observedDomains=[];
 let diagnosticReasons=[];
 let authorizedUser=null;
 let lookupRole=null;
@@ -57,6 +58,7 @@ runInNewContext(js,{
     }
     if(method==="search_read"){
       const domain=payload.params.args[5]?.[0]??[];
+      observedDomains.push({model,domain});
       const fixtures={
         "stock.picking":[
           {id:501,name:"OUT/501",picking_type_code:"outgoing",partner_id:[901,"Delivery A"],company_id:[1,"MAS"],state:"done",date_done:"2026-10-01 12:00:00"},
@@ -162,6 +164,13 @@ assert.equal(populatedDiagnostics.invoice_lines_count,2);
 assert.equal(populatedDiagnostics.invoice_single_sale_line_count,2);
 assert.equal(populatedDiagnostics.distinct_delivery_partner_count,2);
 assert.equal(writes,0,"populated dry-run must not write delivery, return, invoice or logs");
+const pickingDomain=observedDomains.find(x=>x.model==="stock.picking" && x.domain.some(d=>d[0]==="date_done"))?.domain;
+assert.ok(pickingDomain,"expected outgoing/return picking date range");
+assert.deepEqual(pickingDomain.find(d=>d[0]==="date_done" && d[1]==="<"),["date_done","<","2026-10-03 00:00:00"],"full final calendar day must be included");
+const invoiceDomain=observedDomains.find(x=>x.model==="account.move" && x.domain.some(d=>d[0]==="invoice_date"))?.domain;
+assert.ok(invoiceDomain);
+assert.deepEqual(invoiceDomain.find(d=>d[0]==="invoice_date" && d[1]==="<="),["invoice_date","<=","2026-10-02"]);
+
 populatedMock=false;
 allowMockOdoo=false;
 assert.deepEqual(diagnosticReasons,[
