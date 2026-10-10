@@ -11,6 +11,7 @@ const js=transformSync(source,{loader:"ts",target:"es2022",format:"iife"}).code;
 let handler;
 let writes=0;
 let networkCalls=0;
+let allowMockOdoo=false;
 let diagnosticReasons=[];
 let authorizedUser=null;
 let lookupRole=null;
@@ -28,11 +29,34 @@ runInNewContext(js,{
   Deno:{serve:(fn)=>{handler=fn;},env:{get:(k)=>({
     SUPABASE_URL:"https://test.invalid",
     SUPABASE_SERVICE_ROLE_KEY:"test-only-service-key",
+    ...(allowMockOdoo?{ODOO_URL:"https://odoo.test.invalid",ODOO_USERNAME:"test-user",ODOO_API_KEY:"dummy",ODOO_DB:"TEST"}:{}),
     // No Odoo credentials: authorization MUST happen before Odoo access.
   })[k]}},
   createClient:()=>supabase,
   Response,Request,Headers,URL,crypto:globalThis.crypto,
-  fetch:async()=>{networkCalls++;throw Error("unexpected network");},
+  fetch:async(_url,options)=>{
+    networkCalls++;
+    if(!allowMockOdoo) throw Error("unexpected network");
+    const payload=JSON.parse(options.body);
+    if(payload.params.service==="common") return {ok:true,json:async()=>({result:101})};
+    const [db,uid,key,model,method]=payload.params.args;
+    assert.equal(db,"TEST");
+    assert.equal(uid,101);
+    if(method==="fields_get"){
+      const fields={
+        "stock.move":["id","picking_id","product_id","product_uom_qty","quantity","origin_returned_move_id","state","sale_line_id"],
+        "stock.picking":["id","name","picking_type_code","origin","partner_id","company_id","state","date_done","return_id"],
+        "account.move":["id","name","move_type","state","date","invoice_date","invoice_origin","company_id","partner_id","invoice_user_id","reversed_entry_id","currency_id"],
+        "account.move.line":["id","move_id","product_id","quantity","price_subtotal","price_total","sale_line_ids","display_type"],
+        "res.partner":["id","name"],
+        "sale.order":["id","partner_shipping_id"],
+      }[model];
+      assert.ok(fields,`unknown mocked model ${model}`);
+      return {ok:true,json:async()=>({result:Object.fromEntries(fields.map(f=>[f,{type:"string"}]))})};
+    }
+    if(method==="search_read") return {ok:true,json:async()=>({result:[]})};
+    throw Error("unexpected Odoo method "+method);
+  },
   console:{warn:(label,info)=>{assert.equal(label,"OTC_AUTH_DENIED");diagnosticReasons.push(info.reason);},error:()=>{},log:()=>{}},
 });
 assert.equal(typeof handler,"function");
@@ -77,10 +101,22 @@ const backwards=await handler(new Request("https://test.invalid/functions/v1/syn
   method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"dry_run",start_date:"2026-10-03",end_date:"2026-10-02"})
 }));
 assert.equal((await backwards.json()).error,"INVALID_DATE_RANGE");
+// A complete authorized dry_run with simulated Odoo API and empty data
+// MUST succeed without any database writes, even though it makes read-only Odoo calls.
+allowMockOdoo=true;
+const completeDryRun=await request("dry_run","valid-test-admin-token");
+assert.equal(completeDryRun.status,200,JSON.stringify(completeDryRun));
+assert.equal(completeDryRun.body.success,true);
+assert.equal(completeDryRun.body.mode,"dry_run");
+assert.equal(completeDryRun.body.writes_performed,0);
+assert.equal(completeDryRun.body.diagnostics.delivery_moves_count,0);
+assert.equal(completeDryRun.body.diagnostics.invoice_lines_count,0);
+assert.ok(networkCalls>0,"mocked read-only Odoo API calls were expected");
+allowMockOdoo=false;
 assert.deepEqual(diagnosticReasons,[
   "missing_authorization","unresolved_user_token","role_not_authorized",
   "missing_authorization","unresolved_user_token","role_not_authorized",
 ]);
 assert.equal(writes,0,"unauthorized failure paths must never write sync logs or snapshots");
-assert.equal(networkCalls,0,"unauthorized requests must never reach Odoo");
+assert.ok(networkCalls>0,"authorized dry run should call mocked Odoo");
 console.log("OTC Edge unauthorized paths: zero writes and zero external network calls");
