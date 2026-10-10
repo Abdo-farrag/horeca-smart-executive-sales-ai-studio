@@ -28,6 +28,16 @@ function m2oName(value:Many2One|undefined):string|null { return Array.isArray(va
 function num(value:unknown):number { const parsed=typeof value === "number" ? value : Number(value ?? 0); return Number.isFinite(parsed) ? parsed : 0; }
 function pct(n:number,d:number):number { return d > 0 ? Number(((n/d)*100).toFixed(2)) : 0; }
 function toIso(value:string|undefined):string|null { if(!value) return null; if(value.includes("T")) return value.endsWith("Z") ? value : `${value}Z`; return `${value.replace(" ","T")}Z`; }
+function validIsoDay(value:string):boolean {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date=new Date(value+"T00:00:00.000Z");
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10)===value;
+}
+function nextIsoDay(value:string):string {
+  const date=new Date(value+"T00:00:00.000Z");
+  date.setUTCDate(date.getUTCDate()+1);
+  return date.toISOString().slice(0,10);
+}
 function chunks<T>(items:T[],size:number):T[][] { const out:T[][]=[]; for(let i=0;i<items.length;i+=size) out.push(items.slice(i,i+size)); return out; }
 function uniqueNumbers(values:Array<number|null|undefined>):number[] { return [...new Set(values.filter((v):v is number=>Number.isFinite(v as number)).map(Number))]; }
 
@@ -80,6 +90,9 @@ Deno.serve(async(req:Request)=>{
     mode=body.mode === "sync" ? "sync" : "dry_run";
     const startDate=typeof body.start_date === "string" && body.start_date ? body.start_date : DEFAULT_CUTOFF;
     const endDate=typeof body.end_date === "string" && body.end_date ? body.end_date : null;
+    if(!validIsoDay(startDate) || (endDate!==null && (!validIsoDay(endDate) || endDate<startDate))) {
+      throw new Error("INVALID_DATE_RANGE");
+    }
     const requestedCompanies=Array.isArray(body.company_ids) ? body.company_ids.map(Number) : ALLOWED_COMPANIES;
     const companyIds=requestedCompanies.filter((id)=>ALLOWED_COMPANIES.includes(id));
     if(!companyIds.length) throw new Error("No authorized OTC company ids requested");
@@ -117,7 +130,7 @@ Deno.serve(async(req:Request)=>{
     if(Object.values(missingFields).some((items)=>items.length)) throw new Error(`Missing required OTC Odoo fields: ${JSON.stringify(missingFields)}`);
 
     const dateDoneDomain:unknown[]=[["state","=","done"],["company_id","in",companyIds],["date_done",">=",`${startDate} 00:00:00`]];
-    if(endDate) dateDoneDomain.push(["date_done","<",`${endDate} 23:59:59`]);
+    if(endDate) dateDoneDomain.push(["date_done","<",`${nextIsoDay(endDate)} 00:00:00`]);
     const pickings=await readAll<StockPicking>(odooUrl,odooDb,uid,apiKey,"stock.picking",dateDoneDomain,["id","name","picking_type_code","origin","partner_id","company_id","state","date_done","return_id"],companyIds);
     const pickingMap=new Map(pickings.map((p)=>[p.id,p]));
     const deliveryPartnerIds=uniqueNumbers(pickings.map((p)=>m2oId(p.partner_id)));
