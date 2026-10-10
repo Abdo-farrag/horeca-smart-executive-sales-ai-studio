@@ -65,6 +65,18 @@ lookupRole={role:"admin",is_active:true};
 const permittedDryRun=await request("dry_run","valid-test-admin-token");
 assert.equal(permittedDryRun.status,500);
 assert.match(permittedDryRun.body.error,/Missing required secret: ODOO_URL/);
+// Invalid calendar dates must fail before calling Odoo or writing to Supabase.
+for(const badDate of ["2026-02-30","2026-13-01","2026-10-01T12:00:00","2026/10/01"]){
+  const response=await handler(new Request("https://test.invalid/functions/v1/sync-odoo18-order-to-cash",{
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"dry_run",company_ids:[1],start_date:badDate,end_date:"2026-10-02"})
+  }));
+  assert.equal(response.status,500);
+  assert.equal((await response.json()).error,"INVALID_DATE_RANGE");
+}
+const backwards=await handler(new Request("https://test.invalid/functions/v1/sync-odoo18-order-to-cash",{
+  method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:"dry_run",start_date:"2026-10-03",end_date:"2026-10-02"})
+}));
+assert.equal((await backwards.json()).error,"INVALID_DATE_RANGE");
 assert.deepEqual(diagnosticReasons,[
   "missing_authorization","unresolved_user_token","role_not_authorized",
   "missing_authorization","unresolved_user_token","role_not_authorized",
