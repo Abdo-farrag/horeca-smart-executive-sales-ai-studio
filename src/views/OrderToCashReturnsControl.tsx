@@ -18,7 +18,7 @@ const KpiCard: React.FC<{ label: string; value: string; note?: string; tone?: 'n
 export const OrderToCashReturnsControl: React.FC = () => {
   const { language, filters } = useApp();
   const isAr = language === 'ar';
-  const [dateBasis, setDateBasis] = useState<OtcDateBasis>('order_cohort');
+  const [dateBasis, setDateBasis] = useState<OtcDateBasis>('event');
   const [data, setData] = useState<OrderToCashControlData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +83,8 @@ export const OrderToCashReturnsControl: React.FC = () => {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label={isAr ? 'قيمة الطلبات' : 'Ordered'} value={money(k?.orderedValue ?? 0)} />
-        <KpiCard label="Net Delivered" value={money(k?.netDeliveredValue ?? 0)} note={`${isAr ? 'مرتجعات' : 'Returns'}: ${money(k?.returnedValue ?? 0)}`} />
-        <KpiCard label="Net Invoiced" value={money(k?.netInvoicedValue ?? 0)} note={`${isAr ? 'إشعارات دائنة' : 'Credit Notes'}: ${money(k?.creditNoteValue ?? 0)}`} />
+        <KpiCard label={isAr ? 'صافي التسليم' : 'Net Delivered'} value={money(k?.netDeliveredValue ?? 0)} note={`${isAr ? 'إجمالي التسليم بعد خصم المرتجعات' : 'Gross delivered less returns'} · ${isAr ? 'مرتجعات' : 'Returns'}: ${money(k?.returnedValue ?? 0)}`} />
+        <KpiCard label={isAr ? 'صافي الفواتير' : 'Net Invoiced'} value={money(k?.netInvoicedValue ?? 0)} note={`${isAr ? 'إشعارات دائنة' : 'Credit Notes'}: ${money(k?.creditNoteValue ?? 0)}`} />
         <KpiCard label="Uncredited Returns" value={String(k?.uncreditedReturnsCount ?? 0)} note={money(k?.uncreditedReturnsValue ?? 0)} tone={(k?.uncreditedReturnsCount ?? 0) > 0 ? 'warn' : 'normal'} />
       </section>
 
