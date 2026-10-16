@@ -43,12 +43,14 @@ for (const appRoot of ['src', 'apps/lovable/src', 'apps/studio/src']) {
   requireText(view, 'Net Invoiced', `${appRoot} OTC net invoiced KPI`);
   requireText(view, 'Uncredited Returns', `${appRoot} OTC exception KPI`);
   requireText(view, 'Date Basis', `${appRoot} OTC date basis selector`);
+  requireText(view, "useState<OtcDateBasis>('event')", `${appRoot} OTC defaults to event-date net delivery`);
+  requireText(view, 'صافي التسليم', `${appRoot} OTC Arabic net-delivery label`);
   requireText(app, "case 'order-to-cash'", `${appRoot} OTC app route`);
   requireText(sidebar, "id: 'order-to-cash'", `${appRoot} OTC sidebar entry`);
   requireText(capabilities, "'order-to-cash'", `${appRoot} OTC RBAC capability`);
 
   for (const source of [analytics, service, view]) {
-    if (/\.from\(\s*['\"]otc_(delivery|return|invoice)_lines['\"]\s*\)/.test(source)) {
+    if (/\.from\(\s*['"]otc_(delivery|return|invoice)_lines['"]\s*\)/.test(source)) {
       errors.push(`${appRoot} OTC browser code must use secure RPCs only`);
     }
   }
