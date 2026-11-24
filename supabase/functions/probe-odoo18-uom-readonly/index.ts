@@ -76,6 +76,10 @@ Deno.serve(async(req)=>{
   const records=await odoo(url,db,uid,key,"stock.move","search_read",
    [[["company_id","=",companyId],["state","=","done"]]],
    {fields:moveFields,limit,order:"id desc",context:{allowed_company_ids:[companyId]}}) as Row[];
+  // Reject the entire upstream response if the ERP returns any row outside the
+  // explicitly authorized company. Never expose another company's row details.
+  if(records.some(r=>m2o(r.company_id)!==Number(companyId)))
+   return respond({success:false,error:"UPSTREAM_COMPANY_SCOPE_MISMATCH",writes_performed:0},502);
   const productIds=[...new Set(records.map(r=>m2o(r.product_id)).filter((n):n is number=>n!==null))];
   const productFields=["id","uom_id","name"].filter(f=>f in productMeta);
   const products=productIds.length?await odoo(url,db,uid,key,"product.product","search_read",
