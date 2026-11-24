@@ -9,6 +9,7 @@ on:
       - "supabase/migrations/20261124010000_otc_return_audit_candidates.sql"
       - "supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql"
       - "supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql"
+      - "supabase/migrations/20261124013000_otc_return_audit_history.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -85,3 +86,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql
       - name: Assert review statuses, history, scope and concurrency
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/40_review_workflow_assertions.sql
+      - name: Apply history read APIs
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124013000_otc_return_audit_history.sql
+      - name: Assert permanent review history after alert disappearance
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/50_history_assertions.sql
