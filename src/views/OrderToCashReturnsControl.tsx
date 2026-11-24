@@ -1,3 +1,4 @@
+import { OtcMovementReconciliationPanel } from '../components/OtcMovementReconciliationPanel';
 import { ReturnEvidenceCoveragePanel } from '../components/ReturnEvidenceCoveragePanel';
 import { ReturnAuditHistoryPanel } from '../components/ReturnAuditHistoryPanel';
 import { ReturnAuditCandidatesPanel } from '../components/ReturnAuditCandidatesPanel';
@@ -158,6 +159,7 @@ export const OrderToCashReturnsControl: React.FC = () => {
           </table>
         </div>
       </section>
+      <OtcMovementReconciliationPanel />
       <ReturnEvidenceCoveragePanel />
       <ReturnAuditCandidatesPanel />
       <ReturnAuditHistoryPanel />
