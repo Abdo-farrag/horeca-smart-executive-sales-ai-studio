@@ -8,6 +8,7 @@ on:
       - "supabase/migrations/2026100707*.sql"
       - "supabase/migrations/20261124010000_otc_return_audit_candidates.sql"
       - "supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql"
+      - "supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -80,3 +81,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql
       - name: Assert audit RPC authentication and company isolation
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/30_audit_rpc_assertions.sql
+      - name: Apply auditable review workflow
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql
+      - name: Assert review statuses, history, scope and concurrency
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/40_review_workflow_assertions.sql
