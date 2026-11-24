@@ -40,8 +40,11 @@ create or replace function public.otc_return_audit_case_key(
 returns text language sql immutable as $$
  select md5(concat_ws('|',p_rule_code,p_company_id::text,
    coalesce(p_sale_order_line_id::text,'NULL'),p_product_id::text,
-   coalesce((select string_agg(m::text,',' order by m)
-             from unnest(p_return_move_ids) m),'NULL')))
+   case when p_rule_code in ('EXCESS_RETURN_CANDIDATE','MISSING_DELIVERY_EVIDENCE')
+        then 'GROUP'
+        else coalesce((select string_agg(m::text,',' order by m)
+                       from unnest(p_return_move_ids) m),'NULL')
+   end))
 $$;
 revoke all on function public.otc_return_audit_case_key(text,bigint,bigint,bigint,bigint[]) from public,anon,authenticated;
 grant execute on function public.otc_return_audit_case_key(text,bigint,bigint,bigint,bigint[]) to service_role;
