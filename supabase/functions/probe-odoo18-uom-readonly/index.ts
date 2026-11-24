@@ -95,17 +95,35 @@ Deno.serve(async(req)=>{
    const baseId=m2o(product?.uom_id);
    const sourceUom=sourceId==null?undefined:uomById.get(sourceId);
    const baseUom=baseId==null?undefined:uomById.get(baseId);
-   const sameCategory=sourceUom&&baseUom?m2o(sourceUom.category_id)===m2o(baseUom.category_id):null;
+   const sourceCategory=m2o(sourceUom?.category_id);
+   const baseCategory=m2o(baseUom?.category_id);
+   const sameCategory=sourceCategory===null||baseCategory===null?null:sourceCategory===baseCategory;
+   const qty=typeof r.quantity==="number"?r.quantity:Number(r.quantity);
+   const performedQtyValid=r.quantity!==null&&r.quantity!==undefined&&r.quantity!==false&&Number.isFinite(qty)&&qty>=0;
+   const identityConsistent=m2o(r.company_id)===Number(companyId);
+   const issues=[
+    !identityConsistent?"WRONG_COMPANY_SOURCE":null,
+    productId===null?"MISSING_PRODUCT":null,
+    sourceId===null?"MISSING_MOVE_UOM":null,
+    baseId===null?"MISSING_PRODUCT_BASE_UOM":null,
+    sameCategory===null?"MISSING_UOM_CATEGORY":sameCategory===false?"CATEGORY_MISMATCH":null,
+    !performedQtyValid?"INVALID_EXECUTED_QUANTITY":null,
+    !r.write_date?"MISSING_SOURCE_TIMESTAMP":null,
+   ].filter((reason):reason is string=>reason!==null);
    return {move_id:r.id,product_id:productId,origin_move_id:m2o(r.origin_returned_move_id),
     sale_order_line_id:m2o(r.sale_line_id),source_move_uom_id:sourceId,
     product_base_uom_id:baseId,
-    source_uom_category_id:m2o(sourceUom?.category_id),base_uom_category_id:m2o(baseUom?.category_id),
+    source_uom_category_id:sourceCategory,base_uom_category_id:baseCategory,
     same_uom_category:sameCategory,executed_quantity:r.quantity??null,
     demanded_quantity:r.product_uom_qty??null,source_updated_at:r.write_date??null,
+    source_company_matches_request:identityConsistent,performed_quantity_valid:performedQtyValid,
+    diagnostic_issues:issues,metadata_complete:issues.length===0,
     arithmetic_verified:false,requires_semantics_review:true};
   });
+  const issueCounts:Record<string,number>={};
+  for(const sample of samples)for(const issue of sample.diagnostic_issues)issueCounts[issue]=(issueCounts[issue]??0)+1;
   return respond({success:true,mode:"read_only_uom_probe",writes_performed:0,
-   company_id:companyId,returned_moves:samples.length,
+   company_id:companyId,returned_moves:samples.length,\n   metadata_complete_count:samples.filter(r=>r.metadata_complete).length,diagnostic_issue_counts:issueCounts,
    metadata:{stock_move_fields:Object.fromEntries(["quantity","product_uom","product_uom_qty","origin_returned_move_id","sale_line_id"].map(f=>[f,f in moveMeta])),
     product_uom_available:"uom_id" in productMeta,
     uom_fields_available:uomFields,formula_verified:false},
