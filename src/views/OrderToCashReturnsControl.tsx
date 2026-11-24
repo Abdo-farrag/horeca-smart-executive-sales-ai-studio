@@ -1,3 +1,4 @@
+import { ReturnEvidenceCoveragePanel } from '../components/ReturnEvidenceCoveragePanel';
 import { ReturnAuditHistoryPanel } from '../components/ReturnAuditHistoryPanel';
 import { ReturnAuditCandidatesPanel } from '../components/ReturnAuditCandidatesPanel';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -157,6 +158,7 @@ export const OrderToCashReturnsControl: React.FC = () => {
           </table>
         </div>
       </section>
+      <ReturnEvidenceCoveragePanel />
       <ReturnAuditCandidatesPanel />
       <ReturnAuditHistoryPanel />
     </div>
