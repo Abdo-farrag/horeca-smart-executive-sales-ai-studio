@@ -10,6 +10,7 @@ on:
       - "supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql"
       - "supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql"
       - "supabase/migrations/20261124013000_otc_return_audit_history.sql"
+      - "supabase/migrations/20261124014000_otc_uom_evidence_gate.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -90,3 +91,9 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124013000_otc_return_audit_history.sql
       - name: Assert permanent review history after alert disappearance
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/50_history_assertions.sql
+      - name: Prepare isolated UoM fixture compatibility
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/60_uom_fixture_compat.sql
+      - name: Apply evidence-gated UoM schema and detector
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124014000_otc_uom_evidence_gate.sql
+      - name: Assert unit compatibility, missing proof and stale evidence
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/70_uom_evidence_assertions.sql
