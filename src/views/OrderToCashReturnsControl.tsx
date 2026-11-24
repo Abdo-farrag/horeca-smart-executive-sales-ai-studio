@@ -1,3 +1,4 @@
+import { ReturnAuditHistoryPanel } from '../components/ReturnAuditHistoryPanel';
 import { ReturnAuditCandidatesPanel } from '../components/ReturnAuditCandidatesPanel';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, FileCheck2, RefreshCw, RotateCcw } from 'lucide-react';
@@ -157,6 +158,7 @@ export const OrderToCashReturnsControl: React.FC = () => {
         </div>
       </section>
       <ReturnAuditCandidatesPanel />
+      <ReturnAuditHistoryPanel />
     </div>
   );
 };
