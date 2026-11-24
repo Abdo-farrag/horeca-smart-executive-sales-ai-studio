@@ -10,13 +10,13 @@ update public.otc_return_lines
  where odoo_return_move_id=4001;
 -- The previous history assertions removed 4010-4012, leaving returned 2 of 10.
 insert into public.otc_move_uom_evidence(
- company_id,move_kind,odoo_move_id,product_id,sale_order_line_id,
+ company_id,move_kind,odoo_move_id,product_id,sale_order_line_id,origin_returned_move_id,
  source_qty,source_qty_field,source_uom_id,base_uom_id,base_qty,uom_category_id,
  evidence_status,quantity_semantics_verified,conversion_source,source_updated_at,verified_at,source_reference
 ) values
-(1,'delivery',3001,501,1101,10,'quantity',5,5,10,99,'verified',true,
+(1,'delivery',3001,501,1101,null,10,'quantity',5,5,10,99,'verified',true,
  'test conversion documented','2026-10-10 10:00+00',now(),'synthetic delivery 3001'),
-(1,'return',4001,501,1101,2,'quantity',5,5,2,99,'verified',true,
+(1,'return',4001,501,1101,3001,2,'quantity',5,5,2,99,'verified',true,
  'test conversion documented','2026-10-10 10:00+00',now(),'synthetic return 4001');
 do $$
 begin
