@@ -11,7 +11,7 @@ const m2o=(v:unknown)=>Array.isArray(v)&&Number.isInteger(Number(v[0]))?Number(v
 const validCompany=(n:unknown)=>Number.isInteger(n)&&[1,2].includes(Number(n));
 function required(name:string){const v=Deno.env.get(name)?.trim();if(!v)throw Error("MISSING_CONFIGURATION");return v;}
 async function odoo(url:string,db:string,uid:number,key:string,model:string,method:string,args:unknown[],kwargs:Row={}):Promise<unknown>{
- const response=await fetch(url.replace(/\\/$/,"")+"/jsonrpc",{
+ const response=await fetch(url.replace(/\/$/,"")+"/jsonrpc",{
   method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({jsonrpc:"2.0",method:"call",params:{service:"object",method:"execute_kw",args:[db,uid,key,model,method,args,kwargs]},id:1}),
  });
@@ -42,13 +42,18 @@ Deno.serve(async(req)=>{
    .select("role,is_active,company_id").eq("user_id",user.id).maybeSingle();
   if(roleError||!role?.is_active||!["admin","manager"].includes(String(role.role)))
    return respond({error:"PROBE_FORBIDDEN"},403);
-  const {data:scope,error:scopeError}=await client.rpc("authorized_company_ids");
+  // Authorized company list must execute under the caller JWT, not service_role.
+  const staffClient=createClient(required("SUPABASE_URL"),required("SUPABASE_ANON_KEY"),{
+   global:{headers:{Authorization:"Bearer "+token}},
+   auth:{persistSession:false,autoRefreshToken:false},
+  });
+  const {data:scope,error:scopeError}=await staffClient.rpc("authorized_company_ids");
   if(scopeError||!Array.isArray(scope)||!scope.map(Number).includes(Number(companyId)))
    return respond({error:"COMPANY_SCOPE_FORBIDDEN"},403);
 
   const url=required("ODOO_URL"),db=Deno.env.get("ODOO_DB")?.trim()||"DB-LIVE";
   const key=required("ODOO_API_KEY"),username=required("ODOO_USERNAME");
-  const authResponse=await fetch(url.replace(/\\/$/,"")+"/jsonrpc",{
+  const authResponse=await fetch(url.replace(/\/$/,"")+"/jsonrpc",{
    method:"POST",headers:{"Content-Type":"application/json"},
    body:JSON.stringify({jsonrpc:"2.0",method:"call",
     params:{service:"common",method:"authenticate",args:[db,username,key,{}]},id:1}),
