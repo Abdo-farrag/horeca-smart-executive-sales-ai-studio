@@ -11,6 +11,7 @@ on:
       - "supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql"
       - "supabase/migrations/20261124013000_otc_return_audit_history.sql"
       - "supabase/migrations/20261124014000_otc_uom_evidence_gate.sql"
+      - "supabase/migrations/20261125010000_otc_return_evidence_coverage.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -97,3 +98,7 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124014000_otc_uom_evidence_gate.sql
       - name: Assert unit compatibility, missing proof and stale evidence
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/70_uom_evidence_assertions.sql
+      - name: Apply evidence-coverage diagnostic view and RPC
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261125010000_otc_return_evidence_coverage.sql
+      - name: Assert evidence coverage, staleness and security
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/80_evidence_coverage_assertions.sql
