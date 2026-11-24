@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/otc-postgres.yml"
       - "supabase/migrations/2026100707*.sql"
+      - "supabase/migrations/20261124010000_otc_return_audit_candidates.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -68,3 +69,7 @@ jobs:
           done
       - name: Assert geography, no fanout, returns, net values and permissions
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/10_assertions.sql
+      - name: Apply read-only P0 return audit migration
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124010000_otc_return_audit_candidates.sql
+      - name: Assert P0 return anomaly candidates on synthetic cases
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/20_return_audit_assertions.sql
