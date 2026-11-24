@@ -127,7 +127,8 @@ Deno.serve(async(req)=>{
   const issueCounts:Record<string,number>={};
   for(const sample of samples)for(const issue of sample.diagnostic_issues)issueCounts[issue]=(issueCounts[issue]??0)+1;
   return respond({success:true,mode:"read_only_uom_probe",writes_performed:0,
-   company_id:companyId,returned_moves:samples.length,\n   metadata_complete_count:samples.filter(r=>r.metadata_complete).length,diagnostic_issue_counts:issueCounts,
+   company_id:companyId,returned_moves:samples.length,
+   metadata_complete_count:samples.filter(r=>r.metadata_complete).length,diagnostic_issue_counts:issueCounts,
    metadata:{stock_move_fields:Object.fromEntries(["quantity","product_uom","product_uom_qty","origin_returned_move_id","sale_line_id"].map(f=>[f,f in moveMeta])),
     product_uom_available:"uom_id" in productMeta,
     uom_fields_available:uomFields,formula_verified:false},
