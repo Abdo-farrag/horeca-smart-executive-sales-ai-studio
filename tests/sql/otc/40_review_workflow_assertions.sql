@@ -41,7 +41,7 @@ end $$;
 do $$
 declare k text; blocked boolean:=false;
 begin
- select q.case_key into k from public.otc_return_audit_candidates_v1 q
+ select x.case_key into k from public.otc_return_audit_candidates_v1 q
  cross join lateral (select public.otc_return_audit_case_key(q.rule_code,q.company_id,q.sale_order_line_id,q.product_id,q.return_move_ids) as case_key) x
  where q.company_id=2 limit 1;
  begin perform * from public.review_return_audit_candidate_v1(k,0,'investigating','Forbidden company');
