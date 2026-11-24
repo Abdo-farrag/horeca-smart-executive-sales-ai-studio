@@ -53,6 +53,7 @@ with ds as (
           where e.evidence_status='verified'
             and e.quantity_semantics_verified
             and e.source_updated_at is not distinct from d.source_updated_at
+            and e.source_qty=d.delivered_qty
             and e.product_id=d.product_id
             and e.sale_order_line_id=d.sale_order_line_id
             and e.base_qty is not null
@@ -73,6 +74,7 @@ with ds as (
           where e.evidence_status='verified'
             and e.quantity_semantics_verified
             and e.source_updated_at is not distinct from r.source_updated_at
+            and e.source_qty=r.returned_qty
             and e.product_id=r.product_id
             and e.sale_order_line_id=r.sale_order_line_id
             and e.origin_returned_move_id is not distinct from r.origin_returned_move_id
@@ -98,7 +100,17 @@ where r.total_count=r.valid_count and d.total_count=d.valid_count
   and r.base_uom_min=r.base_uom_max and d.base_uom_min=d.base_uom_max
   and r.cat_min=r.cat_max and d.cat_min=d.cat_max
   and r.base_uom_min=d.base_uom_min and r.cat_min=d.cat_min
-  and r.base_qty>d.base_qty;
+  and r.base_qty>d.base_qty
+  and not exists (
+    select 1 from public.otc_return_lines x
+    where x.company_id=r.company_id and x.sale_order_line_id=r.sale_order_line_id
+      and x.product_id=r.product_id and x.link_confidence='direct'
+      and (x.origin_returned_move_id is null or not exists (
+        select 1 from public.otc_delivery_lines y
+        where y.company_id=x.company_id and y.odoo_move_id=x.origin_returned_move_id
+          and y.sale_order_line_id=x.sale_order_line_id and y.product_id=x.product_id
+      ))
+  );
 
 revoke all on public.otc_verified_excess_return_v1 from public,anon,authenticated;
 grant select on public.otc_verified_excess_return_v1 to service_role;
