@@ -159,7 +159,7 @@ begin
     'returned_value',o.returned_value,'credited_value',o.credited_value,
     'return_events',o.return_events,'last_return_at',o.last_return_at,
     'line_count',o.line_count,'review_flags',to_jsonb(o.review_flags),
-    'review_status','not_reviewed'
+    'review_status','not_available'
    ) order by coalesce(array_length(o.review_flags,1),0) desc,
      o.returned_value desc,o.company_id,o.order_id) from page o),'[]'::jsonb)
  );
@@ -187,6 +187,10 @@ begin
  select array_agg(x) into v_allowed from public.authorized_company_ids() x;
  if p_company_id is null or p_order_id is null or not p_company_id=any(v_allowed) then
   raise exception 'COMPANY_SCOPE_FORBIDDEN' using errcode='42501';end if;
+ if not exists(select 1 from public.otc_sale_line_reconciliation_canonical_v1 v
+     where v.company_id=p_company_id and v.order_id=p_order_id) then
+   raise exception 'ORDER_NOT_FOUND_OR_UNAVAILABLE' using errcode='22023';
+ end if;
  return query with selected_lines as materialized (
    select v.* from public.otc_sale_line_reconciliation_canonical_v1 v
    where v.company_id=p_company_id and v.order_id=p_order_id
