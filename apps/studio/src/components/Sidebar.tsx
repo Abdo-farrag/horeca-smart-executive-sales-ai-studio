@@ -13,7 +13,8 @@ import {
   HelpCircle,
   ShieldCheck,
   Target,
-  ReceiptText
+  ReceiptText,
+  RotateCcw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -24,6 +25,9 @@ export const Sidebar: React.FC = () => {
     { id: 'executive', labelAr: 'اللوحة التنفيذية', labelEn: 'Executive Overview', icon: LayoutDashboard, badgeAr: 'الرئيسية', badgeEn: 'Main' },
     { id: 'sales', labelAr: 'تحليلات المبيعات', labelEn: 'Sales Intelligence', icon: TrendingUp },
     { id: 'order-to-cash', labelAr: 'الطلبات والمرتجعات', labelEn: 'Order-to-Cash & Returns', icon: ReceiptText, badgeAr: 'رقابة', badgeEn: 'Control', badgeColor: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300' },
+    ...(import.meta.env.VITE_RETURNS_REVIEW_CENTER_ENABLED === 'true' ? [
+      { id: 'returns-intelligence', labelAr: 'مركز مراجعة المرتجعات', labelEn: 'Returns Intelligence & Audit', icon: RotateCcw },
+    ] : []),
     { id: 'customers', labelAr: 'تحليلات العملاء', labelEn: 'Customer Analytics', icon: Users },
     { id: 'customer-action-center', labelAr: 'مركز إجراءات العملاء', labelEn: 'Customer Action Center', icon: Target, badgeAr: 'تشغيلي', badgeEn: 'Ops', badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' },
     { id: 'sales-rep-daily-action-center', labelAr: 'مركز عمل المندوب اليومي', labelEn: 'Sales Rep Daily Action Center', icon: UserCheck, badgeAr: 'يومي', badgeEn: 'Daily', badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' },
