@@ -41,7 +41,7 @@ end $$;
 -- Company 2 must not see company 1.
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
 do $$
-declare x jsonb;denied bool:=false;
+declare x jsonb;detail jsonb;denied bool:=false;
 begin
  select payload into x from public.analytics_returns_cohort_dashboard_v1(
   '2026-10-01','2026-10-31',null,null,'all',40,0);
