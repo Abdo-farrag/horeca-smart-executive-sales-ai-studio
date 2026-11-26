@@ -13,9 +13,12 @@ begin
  if k is null then raise exception 'Expected synthetic duplicate return candidate on order 1001';end if;
  perform * from public.review_returns_cohort_order_case_v1(
   1,1001,k,v,'investigating','Synthetic reviewer checks two same-size returns');
- if not exists(select 1 from public.otc_return_audit_case_order_links m
-    where m.case_key=k and m.company_id=1 and m.order_id=1001) then
-  raise exception 'Case-to-original-order mapping not persisted';end if;
+ -- Test via manager-scoped RPC; raw review registry must remain inaccessible
+ -- to authenticated browser users.
+ begin
+  perform 1 from public.otc_return_audit_case_order_links m where m.case_key=k;
+  raise exception 'RAW_CASE_MAPPING_EXPOSED';
+ exception when insufficient_privilege then null; end;
  select count(*) into n from public.analytics_returns_cohort_order_cases_v1(1,1001) c
   where c.case_key=k and c.review_status='investigating' and c.review_version=v+1
     and c.currently_detected;
