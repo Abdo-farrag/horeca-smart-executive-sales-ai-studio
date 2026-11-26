@@ -175,7 +175,7 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
   {summary?<><section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="ملخص فترة الأوردرات">
    <SummaryCard label="عدد أوردرات الفترة" value={number(summary.orderCount)}/>
    <SummaryCard label="أوردرات عليها مرتجعات" value={number(summary.ordersWithReturns)} caption={pct(summary.returnOrderRatePct)+' من أوردرات الفترة'}/>
-   <SummaryCard label="قيمة المرتجعات" value={amount(summary.returnedValue)} caption={pct(summary.returnValueRatePct)+' من قيمة الطلبات — أساس قابل للمقارنة فقط'}/>
+   <SummaryCard label="قيمة المرتجعات" value={amount(summary.returnedValue)} caption={pct(summary.returnValueRatePct)+' من إجمالي التسليم — عند توافق أساس التقييم'}/>
    <SummaryCard label="أوردرات بها مؤشرات للمراجعة" value={number(summary.flaggedOrders)} caption="لا تعني أخطاء مؤكدة"/>
   </section>
   <div className="flex flex-wrap gap-3 text-xs text-slate-500">
