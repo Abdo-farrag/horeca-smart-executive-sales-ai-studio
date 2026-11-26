@@ -118,7 +118,7 @@ begin
  insert into public.otc_return_audit_case_order_links
   (case_key,company_id,order_id,sale_order_line_id,product_id,linked_by)
  values(p_case_key,p_company_id,p_order_id,v_line,v_product,auth.uid())
- on conflict(case_key) do nothing;
+ on conflict on constraint otc_return_audit_case_order_links_pkey do nothing;
  if not exists(select 1 from public.otc_return_audit_case_order_links m
     where m.case_key=p_case_key and m.company_id=p_company_id and m.order_id=p_order_id
       and m.sale_order_line_id=v_line and m.product_id=v_product) then
