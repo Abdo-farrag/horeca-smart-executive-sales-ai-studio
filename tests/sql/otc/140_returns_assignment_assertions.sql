@@ -66,7 +66,7 @@ begin
 end $$;
 reset role;
 -- Confirm history is persisted, immutable through client roles, and versioned.
-do $
+do $$
 declare event_count int;
 begin
  select count(*) into event_count from public.otc_return_case_assignment_events
@@ -76,7 +76,7 @@ begin
    where case_key=current_setting('test.assignment.case_key')
    and previous_version=1 and new_version=2 and to_priority='critical') then
     raise exception 'Assignment history missing versioned escalation';end if;
-end $;
+end $$;
 -- Force an overdue date in the ephemeral test fixture as database owner, not via RPC.
 update public.otc_return_case_assignments set due_date=(now() at time zone 'Africa/Cairo')::date-1
  where case_key=current_setting('test.assignment.case_key');
