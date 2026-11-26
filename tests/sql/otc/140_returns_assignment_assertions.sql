@@ -79,7 +79,7 @@ begin
 end $$;
 -- Event history must reject tampering even if a database owner accidentally tries
 -- to change/delete/truncate it. Test operations rollback their own subtransactions.
-do $
+do $$
 declare k text;blocked boolean;
 begin
  k:=current_setting('test.assignment.case_key');
@@ -104,7 +104,7 @@ begin
  if not blocked then raise exception 'Assignment event TRUNCATE was not prevented';end if;
  if (select count(*) from public.otc_return_case_assignment_events where case_key=k)<>2 then
   raise exception 'Append-only review evidence unexpectedly lost';end if;
-end $;
+end $$;
 -- Force an overdue date in the ephemeral test fixture as database owner, not via RPC.
 update public.otc_return_case_assignments set due_date=(now() at time zone 'Africa/Cairo')::date-1
  where case_key=current_setting('test.assignment.case_key');
