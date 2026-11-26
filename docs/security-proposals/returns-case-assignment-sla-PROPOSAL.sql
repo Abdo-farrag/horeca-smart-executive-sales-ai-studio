@@ -144,4 +144,62 @@ $$;
 revoke all on function public.assign_returns_order_case_v1(bigint,bigint,text,uuid,text,date,integer,text)
  from public,anon,authenticated;
 grant execute on function public.assign_returns_order_case_v1(bigint,bigint,text,uuid,text,date,integer,text) to authenticated;
+
+-- Bounded, server-authorized assignee directory: only active users in the selected company.
+create or replace function public.analytics_returns_case_assignees_v1(p_company_id bigint)
+returns table(user_id uuid,display_name text,role text)
+language plpgsql stable security definer set search_path=pg_catalog,public,auth
+as $$
+begin
+ if auth.uid() is null or auth.role() is distinct from 'authenticated' then
+  raise exception 'AUTH_REQUIRED' using errcode='42501';end if;
+ if not exists(select 1 from public.app_user_roles u where u.user_id=auth.uid()
+    and u.is_active and u.role in('manager','admin')) then
+  raise exception 'AUDIT_MANAGER_REQUIRED' using errcode='42501';end if;
+ if p_company_id is null or p_company_id not in(select public.authorized_company_ids()) then
+  raise exception 'COMPANY_SCOPE_FORBIDDEN' using errcode='42501';end if;
+ return query select u.user_id,u.display_name,u.role from public.app_user_roles u
+ where u.is_active and u.company_id=p_company_id
+ order by u.display_name nulls last,u.user_id limit 200;
+end;
+$$;
+revoke all on function public.analytics_returns_case_assignees_v1(bigint) from public,anon,authenticated;
+grant execute on function public.analytics_returns_case_assignees_v1(bigint) to authenticated;
+
+-- Per-order assignments (including closed or vanished cases) with bounded response.
+create or replace function public.analytics_returns_order_assignments_v1(
+ p_company_id bigint,p_order_id bigint)
+returns table(
+ case_key text,company_id bigint,order_id bigint,assignee_id uuid,
+ priority text,due_date date,assignment_version integer,review_status text,
+ is_overdue boolean,currently_detected boolean
+)
+language plpgsql stable security definer set search_path=pg_catalog,public,auth
+as $$
+begin
+ if auth.uid() is null or auth.role() is distinct from 'authenticated' then
+  raise exception 'AUTH_REQUIRED' using errcode='42501';end if;
+ if not exists(select 1 from public.app_user_roles u where u.user_id=auth.uid()
+    and u.is_active and u.role in('manager','admin')) then
+  raise exception 'AUDIT_MANAGER_REQUIRED' using errcode='42501';end if;
+ if p_company_id is null or p_order_id is null
+   or p_company_id not in(select public.authorized_company_ids()) then
+  raise exception 'COMPANY_SCOPE_FORBIDDEN' using errcode='42501';end if;
+ return query select m.case_key,m.company_id,m.order_id,a.assignee_id,
+  a.priority,a.due_date,a.assignment_version,r.status,
+  (a.due_date < (now() at time zone 'Africa/Cairo')::date
+   and r.status not in('resolved','dismissed','explained')),
+  exists(select 1 from public.otc_return_audit_candidates_v1 c
+   where c.company_id=m.company_id and public.otc_return_audit_case_key(
+    c.rule_code,c.company_id,c.sale_order_line_id,c.product_id,c.return_move_ids)=m.case_key)
+ from public.otc_return_case_assignments a
+ join public.otc_return_audit_case_order_links m on m.case_key=a.case_key
+ join public.otc_return_audit_reviews r on r.case_key=m.case_key and r.company_id=m.company_id
+ where m.company_id=p_company_id and m.order_id=p_order_id
+   and a.company_id=p_company_id
+ order by a.due_date,m.case_key limit 500;
+end;
+$$;
+revoke all on function public.analytics_returns_order_assignments_v1(bigint,bigint) from public,anon,authenticated;
+grant execute on function public.analytics_returns_order_assignments_v1(bigint,bigint) to authenticated;
 commit;
