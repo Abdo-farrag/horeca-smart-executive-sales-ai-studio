@@ -69,3 +69,17 @@ The isolated GitHub Actions PostgreSQL 17 suite now creates a source-shaped cano
 - Review statuses remain `not_available` until a real versioned review record source exists.
 
 This **synthetic CI acceptance is not real-JWT browser UAT, source Odoo completeness, approved RLS remediation, or deployment**. The new RPCs remain proposals only. The paid staging branch was deleted before this work, and was not recreated.
+
+## Per-order review workflow — implementation proposal, no Production deployment
+
+The proposed `docs/security-proposals/returns-cohort-case-review-PROPOSAL.sql` adds:
+- Service-only/RLS-protected `otc_return_audit_case_order_links`: a durable link from `case_key` to `(company_id,order_id,sale_order_line_id,product_id)`, written **only after a manager's successful versioned review**. The map cannot be reassigned to a different order.
+- `analytics_returns_cohort_order_cases_v1(company_id,order_id)`: manager/company-scoped current candidate cases **plus** previously reviewed cases already mapped to that order even after the original candidate disappears. Only securely linked order-line cases are shown. Cases without verified sale-line links remain in the separate company review queue.
+- `review_returns_cohort_order_case_v1(company_id,order_id,case_key,expected_version,status,note)`: checks authenticated active manager and company, verifies that the current case belongs to this original order, delegates to the preexisting audited versioned workflow `review_return_audit_candidate_v1`, and persists the order link atomically. A conflicting mapping aborts the transaction, including the review event.
+- Existing `analytics_return_audit_history_events_v1` supplies immutable before/after state, actor, note, and occurrence time. No Odoo stock movements, credits, or snapshots are edited by this review.
+
+The frontend `OrderCaseReviewPanel` appears inside the open order's detail drawer in canonical/Lovable/Studio. It supports status updates, mandatory 5–2000-character reasons, optimistic concurrency, current-source visibility, and historic reviewer events. Historical cases that no longer appear in the current source snapshot remain *visible* with their last status, but are not modifiable as though they were still current.
+
+**Known limitations:** Previously reviewed alerts that vanished **before** the new permanent link registry exists cannot be reliably attached to an order because the old review table stores only the hashed case key, company, rule, and note, not the order line. Never guess an order from a hash. New linked cases are durable after reviews; an optional one-off legacy restoration should rely only on separately verified source evidence and approved backfill. Assignment to a specific staff owner, a mandatory due date, supporting document attachments, and proof of corrective action are **not yet implemented**; reviewer actor and reason are stored.
+
+**CI:** ephemeral PostgreSQL fixture `tests/sql/otc/120_returns_order_review_assertions.sql` verifies current alert review with a versioned event, mapping and status after the duplicate source movement disappears, cross-company rejection, sales rep/anon denial, and no direct browser grants on the registry. No billable Supabase branch was recreated.
