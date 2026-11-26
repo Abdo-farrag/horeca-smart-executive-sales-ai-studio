@@ -77,6 +77,34 @@ begin
    and previous_version=1 and new_version=2 and to_priority='critical') then
     raise exception 'Assignment history missing versioned escalation';end if;
 end $$;
+-- Event history must reject tampering even if a database owner accidentally tries
+-- to change/delete/truncate it. Test operations rollback their own subtransactions.
+do $
+declare k text;blocked boolean;
+begin
+ k:=current_setting('test.assignment.case_key');
+ blocked:=false;
+ begin
+  update public.otc_return_case_assignment_events set reason='tampered'
+   where case_key=k;
+ exception when raise_exception then
+  blocked:=sqlerrm='ASSIGNMENT_EVENTS_APPEND_ONLY';end;
+ if not blocked then raise exception 'Assignment event UPDATE was not prevented';end if;
+ blocked:=false;
+ begin
+  delete from public.otc_return_case_assignment_events where case_key=k;
+ exception when raise_exception then
+  blocked:=sqlerrm='ASSIGNMENT_EVENTS_APPEND_ONLY';end;
+ if not blocked then raise exception 'Assignment event DELETE was not prevented';end if;
+ blocked:=false;
+ begin
+  truncate public.otc_return_case_assignment_events;
+ exception when raise_exception then
+  blocked:=sqlerrm='ASSIGNMENT_EVENTS_APPEND_ONLY';end;
+ if not blocked then raise exception 'Assignment event TRUNCATE was not prevented';end if;
+ if (select count(*) from public.otc_return_case_assignment_events where case_key=k)<>2 then
+  raise exception 'Append-only review evidence unexpectedly lost';end if;
+end $;
 -- Force an overdue date in the ephemeral test fixture as database owner, not via RPC.
 update public.otc_return_case_assignments set due_date=(now() at time zone 'Africa/Cairo')::date-1
  where case_key=current_setting('test.assignment.case_key');
