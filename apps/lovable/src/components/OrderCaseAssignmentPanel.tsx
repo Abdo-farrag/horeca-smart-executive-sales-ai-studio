@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {callAnalyticsRpc,clearAnalyticsClientCache} from '../analytics/client';
 
 type Staff={id:string;name:string;role:string};
@@ -19,9 +19,12 @@ export const OrderCaseAssignmentPanel:React.FC<{
  const [error,setError]=useState<string|null>(null);
  const [loading,setLoading]=useState(false);
  const [saving,setSaving]=useState<string|null>(null);
+ const latestRequest=useRef(0);
  const keys=useMemo(()=>Array.from(new Set(caseKeys)).sort(),[caseKeys.join('|')]);
  const load=async()=>{
+  const request=++latestRequest.current;
   setLoading(true);setError(null);
+  setStaff(null);setAssigned(null);
   try{
    const [people,allocations]=await Promise.all([
     callAnalyticsRpc('analytics_returns_case_assignees_v1',{p_company_id:companyId},r=>({
@@ -32,11 +35,11 @@ export const OrderCaseAssignmentPanel:React.FC<{
      p_company_id:companyId,p_order_id:orderId,
     },normalizeAssignment),
    ]);
-   setStaff(people);setAssigned(allocations);
-  }catch(e){setError(e instanceof Error?e.message:String(e));}
-  finally{setLoading(false);}
+   if(request===latestRequest.current){setStaff(people);setAssigned(allocations);}
+  }catch(e){if(request===latestRequest.current)setError(e instanceof Error?e.message:String(e));}
+  finally{if(request===latestRequest.current)setLoading(false);}
  };
- useEffect(()=>{void load();setForms({});},[companyId,orderId]);
+ useEffect(()=>{void load();setForms({});return ()=>{latestRequest.current+=1;};},[companyId,orderId]);
  const save=async(key:string)=>{
   const current=assigned?.find(a=>a.caseKey===key);
   const f=forms[key];
