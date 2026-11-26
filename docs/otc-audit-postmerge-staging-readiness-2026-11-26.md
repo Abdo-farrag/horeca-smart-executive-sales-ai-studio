@@ -66,3 +66,13 @@ Production change remains blocked until real signed-in JWT tests confirm:
 5. Customer 360 and the existing authorized server RPCs still work.
 
 Do not automatically apply the SQL proposal based only on synthetic tests. A missing isolated staging environment is a stop condition, not authorization to test by changing Production.
+## 2026-11-26 — Actual Supabase Development Branch failure
+- User approved creation at quoted USD 0.01344/hour; branch ID f84f071e-5378-4327-93dc-77f6a0e9755c, project ref kwjgwdtcqejxgxwazrin, no Production data copy.
+- After branch creation and one rebase attempt, branch reported MIGRATIONS_FAILED, despite SQL connectivity.
+- The branch migrated only 20260605045814 (create_kartona_orders_database), populated kartona schema but left public without application tables; OTC and staff scope tables were absent.
+- Branch PostgreSQL error log around 2026-11-26 02:00–02:02 UTC: relation public.raw_products does not exist.
+- The next parent migration 20260701230629 (upgrade_procurement_june1) begins with a conditional barcode check followed by ALTER TABLE public.raw_products ADD COLUMN barcode, assuming raw_products already existed. Parent production does have raw_products; new branch does not.
+- Root cause: historical migration/bootstrap dependency on manually pre-existing public.raw_products that is not reconstructed by the recorded earlier migration. This is schema drift / non-replayable migration history, not a failure of the new OTC audit migration.
+- NO repair table was invented, no migrations were manually pushed, and no Production objects changed. Do not rerun rebase blindly or claim staging is ready.
+- Remediation gate: inventory earliest missing bootstrap objects and their dependencies from the original schema, reconstruct migration history in a verified disposable environment with schema-only source provenance, then rerun branch migration sequence; alternatively restore a reviewed staging schema snapshot. Check other historic migrations for similar dependencies.
+- Until complete, continue only with isolated PostgreSQL CI fixtures and read-only source audits. Hourly billing continues while this branch exists; delete after explicit decision if repair is blocked.
