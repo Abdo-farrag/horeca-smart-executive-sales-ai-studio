@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {callAnalyticsRpc} from '../analytics/client';
-type WorkItem={caseKey:string;companyId:number;orderId:number;assigneeId:string;priority:string;dueDate:string;version:number;status:string;overdue:boolean;detected:boolean};
+type WorkItem={caseKey:string;companyId:number;orderId:number;assigneeId:string;assigneeName:string|null;priority:string;dueDate:string;version:number;status:string;overdue:boolean;detected:boolean};
 const labels:Record<string,string>={low:'منخفضة',medium:'متوسطة',high:'مرتفعة',critical:'حرجة'};
 const statuses:Record<string,string>={investigating:'قيد التحقيق',confirmed_error:'خطأ مؤكد',new:'جديد',explained:'مفسر',resolved:'تمت المعالجة',dismissed:'مستبعد'};
 export const ReturnsAssignmentWorklistPanel:React.FC<{companyId:number|null}>=({companyId})=>{
@@ -17,7 +17,7 @@ export const ReturnsAssignmentWorklistPanel:React.FC<{companyId:number|null}>=({
    p_company_id:companyId,p_include_closed:includeClosed,p_limit:100,p_offset:page*100,
   },r=>({
    caseKey:String(r.case_key),companyId:Number(r.company_id),orderId:Number(r.order_id),
-   assigneeId:String(r.assignee_id),priority:String(r.priority),dueDate:String(r.due_date).slice(0,10),
+   assigneeId:String(r.assignee_id),assigneeName:r.assignee_name==null?null:String(r.assignee_name),priority:String(r.priority),dueDate:String(r.due_date).slice(0,10),
    version:Number(r.assignment_version),status:String(r.review_status),
    overdue:r.is_overdue===true,detected:r.currently_detected===true,
   })).then(data=>{if(alive)setRows(data);}).catch(e=>{if(alive)setError(e instanceof Error?e.message:String(e));})
@@ -42,7 +42,7 @@ export const ReturnsAssignmentWorklistPanel:React.FC<{companyId:number|null}>=({
    <tbody>{rows.map(item=><tr key={item.caseKey} className="border-b dark:border-slate-800">
     <td className="p-2">{item.companyId===1?'MAS':'Horeca Smart'} · #{item.orderId}<p className="text-slate-500">تنبيه {item.caseKey.slice(0,8)}</p></td>
     <td className="p-2">{labels[item.priority]??item.priority}</td>
-    <td className="p-2">{item.assigneeId.slice(0,8)}…</td>
+    <td className="p-2">{item.assigneeName??item.assigneeId.slice(0,8)+'…'}</td>
     <td className="p-2">{item.dueDate}{item.overdue?<strong className="block text-red-700">متأخرة</strong>:null}</td>
     <td className="p-2">{statuses[item.status]??item.status}</td>
     <td className="p-2">{item.detected?'التنبيه ما زال ظاهرًا':'التنبيه اختفى — المراجعة محفوظة'}</td>
