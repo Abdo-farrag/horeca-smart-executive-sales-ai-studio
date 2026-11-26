@@ -106,3 +106,13 @@ sync_logs, raw_customers.
 This is a *heuristic inventory*, not a proof that no references are unqualified or dynamic SQL. All nine empty table definitions were reconstructed from parent information_schema/pg_constraint, without copying production records. The first six were documented earlier; the remaining three are documented in docs/staging-only-legacy-bootstrap-completion-20261126.sql and applied to staging only. Rebase was requested after the completion.
 
 **Important operational distinctions:** A complete set of prerequisite tables does not mean their dependent views/functions/triggers/grants match Production. This development branch is an isolated *schema compatibility laboratory*, not an accurate clone of customers/stock movements. Only migrations whose preconditions exist can be tested there; use separate sample fixtures and real-JWT access tests where possible. No November 2026 OTC audit migration has been applied before migration history finishes successfully.
+
+## November 26 fourth replay: extension parity and scheduled-job gate
+
+A complete first-pass inventory of nine historical unrecorded tables was reconstructed using parent information_schema and key constraints. After schema-only staging bootstrap and another replay, the branch reached **42** migrations, through `20260724193656_verify_overview_bcrypt`, before a missing `cron.job` relation blocked `20260725224846_automate_manual_stock_and_sku_refresh`.
+
+Read-only extension comparison showed parent `pg_cron` installed in `pg_catalog`, but not enabled on the development branch. Confirmed Supabase pg_cron installation guide and enabled pg_cron in `kwjgwdtcqejxgxwazrin` only. Production extensions untouched.
+
+The migration `20260725224846` schedules a local `sync_manual_current_stock_from_odoo()` every six hours. A later `20260813091059` schedules a weekly local intelligence refresh. The staged database has no copied data, and these schedules must be **deactivated immediately after replay** before meaningful UAT; do not accidentally run jobs against real external services. An ALTER SYSTEM attempt to disable cron globally was rejected because the API wraps statements in a transaction, so no global disable was applied. After pg_cron install, another branch rebase was requested. Status and new migration count require verification before readiness claims.
+
+This is a staging-only schema investigation, not an activation of historical jobs in Production. Do NOT merge this branch to Supabase Production.
