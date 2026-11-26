@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {callAnalyticsRpc,clearAnalyticsClientCache} from '../analytics/client';
+import {OrderCaseAssignmentPanel} from './OrderCaseAssignmentPanel';
 
 type CaseRecord={
  caseKey:string;ruleCode:string;lineId:number|null;productId:number;
@@ -94,6 +95,10 @@ export const OrderCaseReviewPanel:React.FC<{companyId:number;orderId:number}>=({
   {loading?<p role="status">جارٍ تحميل التنبيهات والمراجعات…</p>:null}
   {error?<p role="alert" className="text-sm text-red-700">{error}</p>:null}
   {cases&&cases.length===0?<p className="text-xs text-slate-500">لا توجد حالات مرتبطة مباشرة بأصناف الأوردر في الـSnapshot. راجع اكتمال المصدر، فالحالات غير المرتبطة بأوردر تظهر في قائمة مستقلة.</p>:null}
+  {cases&&cases.some(c=>c.reviewVersion>0)?<OrderCaseAssignmentPanel
+   companyId={companyId} orderId={orderId}
+   caseKeys={cases.filter(c=>c.reviewVersion>0).map(c=>c.caseKey)}
+  />:null}
   {cases?.map(r=><div className="space-y-2 rounded-lg border p-3 dark:border-slate-700" key={r.caseKey}>
    <div className="flex flex-wrap items-center gap-2 text-xs">
     <strong>{labels[r.ruleCode]??r.ruleCode}</strong>
