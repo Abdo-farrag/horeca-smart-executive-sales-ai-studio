@@ -41,7 +41,7 @@ create or replace function public.analytics_returns_case_worklist_v1(
  p_limit integer default 100,p_offset integer default 0)
 returns table (
  case_key text,company_id bigint,order_id bigint,assignee_id uuid,
- priority text,due_date date,assignment_version integer,review_status text,
+ assignee_name text,priority text,due_date date,assignment_version integer,review_status text,
  is_overdue boolean,currently_detected boolean
 )
 language plpgsql stable security definer set search_path=pg_catalog,public,auth
@@ -57,7 +57,7 @@ begin
  if p_limit is null or p_limit not between 1 and 100 or p_offset is null
     or p_offset not between 0 and 10000 then raise exception 'INVALID_PAGINATION';end if;
  return query select m.case_key,m.company_id,m.order_id,a.assignee_id,
-   a.priority,a.due_date,a.assignment_version,r.status,
+   u.display_name,a.priority,a.due_date,a.assignment_version,r.status,
    (a.due_date < (now() at time zone 'Africa/Cairo')::date
     and r.status not in('resolved','dismissed','explained')) as is_overdue,
    exists(select 1 from public.otc_return_audit_candidates_v1 c
@@ -66,6 +66,7 @@ begin
  from public.otc_return_case_assignments a
  join public.otc_return_audit_case_order_links m on m.case_key=a.case_key
  join public.otc_return_audit_reviews r on r.case_key=m.case_key and r.company_id=m.company_id
+ left join public.app_user_roles u on u.user_id=a.assignee_id
  where a.company_id=m.company_id and m.company_id in(select public.authorized_company_ids())
    and (p_company_id is null or m.company_id=p_company_id)
    and (p_include_closed or r.status not in('resolved','dismissed','explained'))
