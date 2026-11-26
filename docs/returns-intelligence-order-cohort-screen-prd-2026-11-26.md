@@ -26,7 +26,7 @@ The displayed period's orders include orders without returns, because the denomi
 ## Staged RPC contract (NOT CREATED IN PRODUCTION)
 
 1. `public.analytics_returns_cohort_dashboard_v1(p_start_date date,p_end_date date,p_company_id bigint,p_search text,p_status text,p_limit integer,p_offset integer) returns table(payload jsonb)`
-   - `payload.summary`: `order_count`, `orders_with_returns`, `ordered_value`, `returned_value`, `return_order_rate_pct`, `return_value_rate_pct` (nullable), `flagged_orders`, `unlinked_return_moves`, `snapshot_through`.
+   - `payload.summary`: `order_count`, `orders_with_returns`, `ordered_value`, `delivered_value`, `net_delivered_value`, `credited_value`, `returned_value`, `return_order_rate_pct`, `return_value_rate_pct` (nullable), `flagged_orders`, `unlinked_return_moves`, `snapshot_through`.
    - `payload.orders`: paginated *distinct orders*, with `company_id`, `order_id`, `order_name`, `customer_id`, `customer_name`, `salesperson_name`, `order_date`, `ordered_value`, `delivered_value`, `returned_value`, `credited_value`, `return_events`, `last_return_at`, `line_count`, `review_flags`, `review_status`. Sorted by most severe review flag then return value; tie-break by company and order IDs.
    - `payload.total_rows` must count all orders matching filters **before pagination**.
    - `status='all'|'returned'|'flagged'`; filters search exact/ILIKE order number and customer name; period max 366 days, page up to 40, offset <= 10,000. Server-side pagination; no unbounded `jsonb_agg`.
