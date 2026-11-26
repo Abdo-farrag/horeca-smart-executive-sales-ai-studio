@@ -120,6 +120,9 @@ begin
   select count(*)::integer order_count,
    count(*) filter(where return_events>0)::integer orders_with_returns,
    coalesce(sum(ordered_value),0)::numeric ordered_value,
+   coalesce(sum(delivered_value),0)::numeric delivered_value,
+   coalesce(sum(delivered_value-returned_value),0)::numeric net_delivered_value,
+   coalesce(sum(credited_value),0)::numeric credited_value,
    coalesce(sum(returned_value),0)::numeric returned_value,
    count(*) filter(where array_length(review_flags,1)>0)::integer flagged_orders
   from filtered
@@ -134,7 +137,9 @@ begin
   'total_rows',(select count(*) from filtered),
   'summary',(select jsonb_build_object(
     'order_count',order_count,'orders_with_returns',orders_with_returns,
-    'ordered_value',ordered_value,'returned_value',returned_value,
+    'ordered_value',ordered_value,
+    'delivered_value',delivered_value,'net_delivered_value',net_delivered_value,
+    'credited_value',credited_value,'returned_value',returned_value,
     'return_order_rate_pct',case when order_count>0
      then round(orders_with_returns::numeric*100/order_count,2) else null end,
     -- Value-base equivalence and UoM are not verified yet:
