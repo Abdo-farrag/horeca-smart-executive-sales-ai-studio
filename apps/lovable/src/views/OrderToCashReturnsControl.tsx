@@ -9,6 +9,10 @@ import { useApp } from '../context/AppContext';
 import { fetchOrderToCashControlData, type OrderToCashControlData } from '../services/orderToCashService';
 import type { OtcDateBasis } from '../analytics/orderToCash';
 
+// Backend audit RPCs and Odoo probes are not deployed with the dashboard.
+// Keep controls hidden until an explicit, environment-specific release switch.
+const auditPanelsEnabled = import.meta.env.VITE_OTC_RETURNS_AUDIT_ENABLED === 'true';
+
 const money=(value:number)=>`${value.toLocaleString('en-US',{maximumFractionDigits:0})} EGP`;
 const KpiCard:React.FC<{label:string;value:string;note?:string;tone?:'normal'|'warn'}>=({label,value,note,tone='normal'})=><div className={`rounded-2xl border p-4 shadow-sm ${tone==='warn'?'border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20':'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}><div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</div><div className="mt-2 text-xl font-black text-slate-900 dark:text-white">{value}</div>{note?<div className="mt-1 text-[11px] text-slate-500">{note}</div>:null}</div>;
 
@@ -23,8 +27,10 @@ export const OrderToCashReturnsControl:React.FC=()=>{
     <section className="grid grid-cols-1 gap-4 md:grid-cols-3"><KpiCard label={isAr?'فجوة التسليم':'Delivery Gap'} value={money(k?.deliveryGapValue??0)}/><KpiCard label={isAr?'فجوة الفوترة':'Invoice Gap'} value={money(k?.invoiceGapValue??0)}/><KpiCard label={isAr?'معدل المرتجع':'Return Rate'} value={`${(k?.returnRatePct??0).toFixed(2)}%`} note={`${isAr?'ربط مباشر':'Direct link'} ${(k?.directLinkPct??0).toFixed(1)}%`}/></section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-black">{isAr?'اتجاه دورة الطلب إلى التحصيل':'Order-to-Cash Trend'}</h2><FileCheck2 className="h-5 w-5 text-emerald-600"/></div><div className="h-80">{trend.length?<ResponsiveContainer width="100%" height="100%"><LineChart data={trend}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="periodStart" tick={{fontSize:10}}/><YAxis tick={{fontSize:10}}/><Tooltip formatter={(value:unknown)=>money(Number(value??0))}/><Line dataKey="orderedValue" stroke="#2563eb" dot={false}/><Line dataKey="netDeliveredValue" stroke="#059669" dot={false}/><Line dataKey="netInvoicedValue" stroke="#7c3aed" dot={false}/></LineChart></ResponsiveContainer>:<div className="flex h-full items-center justify-center text-xs text-slate-500">{loading?(isAr?'جاري التحميل…':'Loading…'):(isAr?'لا توجد بيانات':'No data')}</div>}</div></section>
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="mb-4 flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600"/><div><h2 className="text-sm font-black">{isAr?'طابور الاستثناءات':'Returns & Reconciliation Exception Queue'}</h2><p className="text-xs text-slate-500">{exceptions.length} {isAr?'حالة':'cases'}</p></div></div><div className="overflow-x-auto"><table className="min-w-full text-xs"><thead><tr className="border-b text-left text-[10px] uppercase text-slate-500"><th className="p-3">Type</th><th className="p-3">Date</th><th className="p-3">Customer</th><th className="p-3">Product</th><th className="p-3">Value</th><th className="p-3">Details</th></tr></thead><tbody>{exceptions.map(row=><tr key={`${row.exceptionType}-${row.sourceEventId}`} className="border-b"><td className="p-3 font-bold"><span className="inline-flex items-center gap-1">{row.exceptionType==='UNCREDITED_RETURN'?<RotateCcw className="h-3.5 w-3.5 text-amber-600"/>:null}{row.exceptionType}</span></td><td className="p-3">{row.eventDate}</td><td className="p-3">#{row.customerId}</td><td className="p-3">#{row.productId}</td><td className="p-3 font-semibold">{money(row.value)}</td><td className="p-3 text-slate-500">{row.details}</td></tr>)}</tbody></table></div></section>
-  <OtcMovementReconciliationPanel />
-      <ReturnEvidenceCoveragePanel />
-      <ReturnAuditCandidatesPanel />
-      <ReturnAuditHistoryPanel /></div>;
+  {auditPanelsEnabled ? (<>
+        <OtcMovementReconciliationPanel />
+        <ReturnEvidenceCoveragePanel />
+        <ReturnAuditCandidatesPanel />
+        <ReturnAuditHistoryPanel />
+      </>) : null}</div>;
 };
