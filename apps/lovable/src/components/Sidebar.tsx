@@ -13,7 +13,8 @@ import {
   HelpCircle,
   ShieldCheck,
   Target,
-  ReceiptText
+  ReceiptText,
+  RotateCcw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -46,6 +47,9 @@ export const Sidebar: React.FC = () => {
       badgeColor: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300'
     },
     {
+    ...(import.meta.env.VITE_RETURNS_REVIEW_CENTER_ENABLED === 'true' ? [
+      { id: 'returns-intelligence', labelAr: 'مركز مراجعة المرتجعات', labelEn: 'Returns Intelligence & Audit', icon: RotateCcw },
+    ] : []),
       id: 'customers',
       labelAr: 'تحليلات العملاء',
       labelEn: 'Customer Analytics',
