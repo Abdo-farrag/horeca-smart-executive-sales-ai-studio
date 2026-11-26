@@ -101,16 +101,26 @@ Deno.serve(async req=>{
      srcDelivery.add(move.id);
   }
   const fetchRows=async(table:"otc_delivery_lines"|"otc_return_lines",keyField:string,dateField:string)=>{
-   const {data,error}=await service.from(table).select(keyField+",company_id")
-    .eq("company_id",company).gte(dateField,start+"T00:00:00Z")
-    .lt(dateField,next+"T00:00:00Z").order(keyField,{ascending:true})
-    .range(0,maxSnapshot);
-   if(error||!Array.isArray(data))throw Error("OTC_SNAPSHOT_READ_FAILED");
-   if(data.some((r:Row)=>Number(r.company_id)!==company))throw Error("OTC_SCOPE_MISMATCH");
-   if(data.length>maxSnapshot)return {status:"limit" as const};
-   const moveIds=data.map((r:Row)=>Number(r[keyField]));
-   if(moveIds.some(n=>!Number.isSafeInteger(n)||n<=0))
-    return {status:"invalid" as const};
+   // PostgREST often caps individual responses (e.g. 1000 rows). Never rely
+   // on one .range(0, 2000) to establish completeness: use bounded pages
+   // of 500 and one sentinel page to prove the 2000-move window is exhaustive.
+   const pageSize=500;
+   const moveIds:number[]=[];
+   for(let offset=0;offset<=maxSnapshot;offset+=pageSize){
+    const {data,error}=await service.from(table).select(keyField+",company_id")
+     .eq("company_id",company).gte(dateField,start+"T00:00:00Z")
+     .lt(dateField,next+"T00:00:00Z").order(keyField,{ascending:true})
+     .range(offset,offset+pageSize-1);
+    if(error||!Array.isArray(data))throw Error("OTC_SNAPSHOT_READ_FAILED");
+    if(data.some((r:Row)=>Number(r.company_id)!==company))throw Error("OTC_SCOPE_MISMATCH");
+    if(moveIds.length+data.length>maxSnapshot)return {status:"limit" as const};
+    for(const row of data as Row[]){
+     const moveId=Number(row[keyField]);
+     if(!Number.isSafeInteger(moveId)||moveId<=0)return {status:"invalid" as const};
+     moveIds.push(moveId);
+    }
+    if(data.length<pageSize)break;
+   }
    if(new Set(moveIds).size!==moveIds.length)
     return {status:"duplicate" as const};
    return {status:"complete" as const,ids:new Set<number>(moveIds)};
