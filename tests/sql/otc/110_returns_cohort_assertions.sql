@@ -14,6 +14,12 @@ begin
    raise exception 'Company 1 must have exactly 3 October orders: %',x->'summary';end if;
  if (x->'summary'->>'orders_with_returns')::int<>2 then
    raise exception 'Later-period return must be assigned to October original cohort: %',x->'summary';end if;
+ if (x->'summary'->>'ordered_value')::numeric<>170
+    or (x->'summary'->>'delivered_value')::numeric<>150
+    or (x->'summary'->>'returned_value')::numeric<>50
+    or (x->'summary'->>'net_delivered_value')::numeric<>100
+    or (x->'summary'->>'credited_value')::numeric<>20 then
+   raise exception 'Cohort values multiplied by movement joins or failed to include later return: %',x->'summary';end if;
  if (x->>'total_rows')::int<>3 or jsonb_array_length(x->'orders')<>3 then
    raise exception 'Company 1 pagination/summary mismatch';end if;
  if x->'summary'->'return_value_rate_pct'<>'null'::jsonb then
@@ -42,6 +48,11 @@ begin
  if (x->'summary'->>'order_count')::int<>1 or
    (x->'orders'->0->>'company_id')::int<>2 then
   raise exception 'Manager company 2 leaked data';end if;
+ if (x->'orders'->0->>'order_id')::int<>1001 then
+  raise exception 'Company 2 should use overlapping numeric order ID 1001';end if;
+ select payload into detail from public.analytics_returns_cohort_order_detail_v1(2,1001);
+ if (detail->>'company_id')::int<>2 or (detail->>'order_name')<>'MS2001' then
+  raise exception 'Company 2 order detail incorrectly read MAS order 1001';end if;
  begin
   perform * from public.analytics_returns_cohort_order_detail_v1(1,1001);
  exception when insufficient_privilege then denied:=true;
