@@ -95,3 +95,14 @@ Do not automatically apply the SQL proposal based only on synthetic tests. A mis
 - This demonstrates that even a multi-object bootstrap is incomplete. **Do not patch another table and rebase** until the full schema-only pre-history baseline is formally reconstructed and independently reviewed. The heuristic audit docs/otc-legacy-migration-dependency-audit-readonly.sql records first references vs recorded CREATE TABLE statements; it does not prove all object DDL or foreign-key/view/function dependencies are covered.
 - No November audit migrations deployed; no authenticated JWT or source UoM checks performed; no Production writes.
 - The staging branch is billed hourly. If further schema reconstruction will not be done immediately, delete the blocked branch after obtaining the user's direction (deletion loses the isolated investigative state).
+
+## Complete first-pass catalog inventory of historical unrecorded table dependencies
+
+The original migration-history text was scanned against explicit public schema object references and CREATE TABLE statements on the parent project. Nine parent public base tables were first referenced before any registered CREATE TABLE for them:
+raw_products, manual_current_stock, sku_master, sku_supplier_settings,
+purchase_recommendations, raw_sales_lines, customer_product_history,
+sync_logs, raw_customers.
+
+This is a *heuristic inventory*, not a proof that no references are unqualified or dynamic SQL. All nine empty table definitions were reconstructed from parent information_schema/pg_constraint, without copying production records. The first six were documented earlier; the remaining three are documented in docs/staging-only-legacy-bootstrap-completion-20261126.sql and applied to staging only. Rebase was requested after the completion.
+
+**Important operational distinctions:** A complete set of prerequisite tables does not mean their dependent views/functions/triggers/grants match Production. This development branch is an isolated *schema compatibility laboratory*, not an accurate clone of customers/stock movements. Only migrations whose preconditions exist can be tested there; use separate sample fixtures and real-JWT access tests where possible. No November 2026 OTC audit migration has been applied before migration history finishes successfully.
