@@ -45,7 +45,7 @@ const parseOrder=(r:unknown):OrderRow=>{
   returnEvents:num(x.return_events),lastReturnAt:x.last_return_at==null?null:String(x.last_return_at),
   lineCount:num(x.line_count),reviewFlags:Array.isArray(x.review_flags)?
    x.review_flags.filter((v):v is ReviewFlag=>typeof v==='string'&&v in flagLabel):[],
-  reviewStatus:String(x.review_status??'not_reviewed'),
+  reviewStatus:String(x.review_status??'not_available'),
  };
 };
 const parseSummary=(s:unknown):Summary=>{
