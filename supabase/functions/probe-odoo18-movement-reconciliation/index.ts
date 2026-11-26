@@ -87,6 +87,12 @@ Deno.serve(async req=>{
    return result({error:"UPSTREAM_COMPANY_SCOPE_MISMATCH",writes_performed:0},502);
   if(moves.length>maxMoves)return result({success:false,status:"INCOMPLETE_WINDOW",
    reason:"MOVE_LIMIT_EXCEEDED",sample_count:moves.length,writes_performed:0},200);
+  // A Set silently collapses repeated IDs and can falsely report a clean match.
+  const upstreamIds=moves.map(m=>Number(m.id));
+  if(upstreamIds.some(n=>!Number.isSafeInteger(n)||n<=0)||
+     new Set(upstreamIds).size!==upstreamIds.length)
+   return result({success:false,status:"INCOMPLETE_WINDOW",
+    reason:"INVALID_OR_DUPLICATE_ODOO_MOVE_ID",writes_performed:0});
   const srcDelivery=new Set<number>(),srcReturn=new Set<number>();
   for(const move of moves){
    const isReturn=id(move.origin_returned_move_id)!==null;
@@ -101,15 +107,25 @@ Deno.serve(async req=>{
     .range(0,maxSnapshot);
    if(error||!Array.isArray(data))throw Error("OTC_SNAPSHOT_READ_FAILED");
    if(data.some((r:Row)=>Number(r.company_id)!==company))throw Error("OTC_SCOPE_MISMATCH");
-   if(data.length>maxSnapshot)return null;
-   return new Set<number>(data.map((r:Row)=>Number(r[keyField])));
+   if(data.length>maxSnapshot)return {status:"limit" as const};
+   const moveIds=data.map((r:Row)=>Number(r[keyField]));
+   if(moveIds.some(n=>!Number.isSafeInteger(n)||n<=0))
+    return {status:"invalid" as const};
+   if(new Set(moveIds).size!==moveIds.length)
+    return {status:"duplicate" as const};
+   return {status:"complete" as const,ids:new Set<number>(moveIds)};
   };
   const [snapDelivery,snapReturn]=await Promise.all([
    fetchRows("otc_delivery_lines","odoo_move_id","delivery_date"),
    fetchRows("otc_return_lines","odoo_return_move_id","return_receipt_date"),
   ]);
-  if(snapDelivery===null||snapReturn===null)return result({success:false,
-   status:"INCOMPLETE_WINDOW",reason:"SNAPSHOT_LIMIT_EXCEEDED",writes_performed:0});
+  if(snapDelivery.status!=="complete"||snapReturn.status!=="complete"){
+   const failure=snapDelivery.status!=="complete"?snapDelivery:snapReturn;
+   return result({success:false,status:"INCOMPLETE_WINDOW",
+    reason:failure.status==="limit"?"SNAPSHOT_LIMIT_EXCEEDED":
+      failure.status==="duplicate"?"DUPLICATE_SNAPSHOT_MOVE_ID":"INVALID_SNAPSHOT_MOVE_ID",
+    writes_performed:0});
+  }
   const compare=(source:Set<number>,snapshot:Set<number>)=>{
    const missing=[...source].filter(x=>!snapshot.has(x));
    const extra=[...snapshot].filter(x=>!source.has(x));
@@ -118,7 +134,7 @@ Deno.serve(async req=>{
     missing_move_ids_sample:missing.slice(0,20),extra_move_ids_sample:extra.slice(0,20),
     ids_match:missing.length===0&&extra.length===0};
   };
-  const delivery=compare(srcDelivery,snapDelivery),returns=compare(srcReturn,snapReturn);
+  const delivery=compare(srcDelivery,snapDelivery.ids),returns=compare(srcReturn,snapReturn.ids);
   return result({success:true,status:delivery.ids_match&&returns.ids_match?"IDS_MATCH_IN_WINDOW":"ID_MISMATCH",
    company_id:company,start_date:start,end_date:end,scope:"completed_pickings_in_requested_window",
    deliveries:delivery,returns,writes_performed:0,
