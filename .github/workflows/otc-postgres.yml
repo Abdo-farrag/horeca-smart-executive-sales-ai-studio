@@ -12,12 +12,14 @@ on:
       - "supabase/migrations/20261124013000_otc_return_audit_history.sql"
       - "supabase/migrations/20261124014000_otc_uom_evidence_gate.sql"
       - "supabase/migrations/20261125010000_otc_return_evidence_coverage.sql"
+      - "docs/security-proposals/returns-cohort-dashboard-rpcs-PROPOSAL.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
     paths:
       - ".github/workflows/otc-postgres.yml"
       - "supabase/migrations/2026100707*.sql"
+      - "docs/security-proposals/returns-cohort-dashboard-rpcs-PROPOSAL.sql"
       - "tests/sql/otc/**"
   workflow_dispatch:
 
@@ -104,3 +106,9 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/80_evidence_coverage_assertions.sql
       - name: Simulate proposed restrictive OTC company RLS in isolated rollback-only transaction
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/90_restrictive_company_policy_proposal_assertions.sql
+      - name: Extend fixture with October cohort and November returns
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/100_returns_cohort_fixture.sql
+      - name: Compile proposed cohort dashboard and detail RPCs on synthetic PostgreSQL
+        run: psql -X -v ON_ERROR_STOP=1 -f docs/security-proposals/returns-cohort-dashboard-rpcs-PROPOSAL.sql
+      - name: Assert order linking and cross-company review isolation
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/110_returns_cohort_assertions.sql
