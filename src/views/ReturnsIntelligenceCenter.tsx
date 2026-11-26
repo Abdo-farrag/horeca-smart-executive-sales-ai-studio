@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {AlertTriangle, ChevronDown, ChevronUp, RefreshCw, RotateCcw, Search, ShieldCheck} from 'lucide-react';
 import {useApp} from '../context/AppContext';
 import {callAnalyticsRpc} from '../analytics/client';
@@ -95,7 +95,8 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
  const [summary,setSummary]=useState<Summary|null>(null);
  const [orders,setOrders]=useState<OrderRow[]|null>(null);
  const [total,setTotal]=useState(0);
- const [selected,setSelected]=useState<number|null>(null);
+ const [selected,setSelected]=useState<string|null>(null);
+ const detailRequestVersion=useRef(0);
  const [detail,setDetail]=useState<Detail|null>(null);
  const [detailError,setDetailError]=useState<string|null>(null);
  const [detailLoading,setDetailLoading]=useState(false);
@@ -108,7 +109,7 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
  useEffect(()=>{setCompany(filters.companyId?String(filters.companyId):'');},[filters.companyId]);
 
  useEffect(()=>{
-  setSelected(null);setDetail(null);setOrders(null);setSummary(null);setError(null);
+  detailRequestVersion.current+=1;setSelected(null);setDetail(null);setOrders(null);setSummary(null);setError(null);
   if(!validDate(start)||!validDate(end)||start>end){setError('راجع فترة البداية والنهاية.');return;}
   let active=true;setLoading(true);
   callAnalyticsRpc('analytics_returns_cohort_dashboard_v1',{
@@ -127,17 +128,24 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
  },[start,end,company,query,status,page,reload]);
 
  const selectOrder=async (row:OrderRow)=>{
-  if(selected===row.orderId){setSelected(null);setDetail(null);return;}
-  setSelected(row.orderId);setDetail(null);setDetailError(null);setDetailLoading(true);
+  // Odoo order IDs may overlap between MAS and Horeca Smart.
+  const selectionKey=row.companyId+':'+row.orderId;
+  const requestId=++detailRequestVersion.current;
+  if(selected===selectionKey){setSelected(null);setDetail(null);setDetailError(null);setDetailLoading(false);return;}
+  setSelected(selectionKey);setDetail(null);setDetailError(null);setDetailLoading(true);
   try{
    const rows=await callAnalyticsRpc('analytics_returns_cohort_order_detail_v1',{
     p_company_id:row.companyId,p_order_id:row.orderId,
    },r=>r);
+   if(detailRequestVersion.current!==requestId)return;
    const payload=rows[0]?.payload;
    if(!payload)throw Error('لا توجد تفاصيل معتمدة لهذا الطلب.');
-   setDetail(parseDetail(payload));
-  }catch(e){setDetailError(e instanceof Error?e.message:String(e));}
-  finally{setDetailLoading(false);}
+   const parsed=parseDetail(payload);
+   if(parsed.companyId!==row.companyId||parsed.orderId!==row.orderId)
+    throw Error('هوية الأوردر المسترجع لا تطابق الشركة والأوردر المطلوبين.');
+   setDetail(parsed);
+  }catch(e){if(detailRequestVersion.current===requestId)setDetailError(e instanceof Error?e.message:String(e));}
+  finally{if(detailRequestVersion.current===requestId)setDetailLoading(false);}
  };
  const pct=(v:number|null)=>v===null?'غير قابل للحساب':v.toFixed(1)+'%';
 
@@ -199,12 +207,12 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
       <td className="p-3">{amount(row.returnedValue)}<span className="block text-slate-500">{number(row.returnEvents)} حركة</span></td>
       <td className="p-3">
        {row.returnEvents>0?'مرتجع مسجل':row.deliveredValue>0?'تسليم ظاهر':'التسليم غير مثبت في الـSnapshot'}
-       <span className="block text-slate-500">{row.reviewStatus==='not_reviewed'?'لم تُراجع الحالة':'مراجعة: '+row.reviewStatus}</span>
+       <span className="block text-slate-500">{row.reviewStatus==='not_available'?'سجل المراجعة غير متاح':'مراجعة: '+row.reviewStatus}</span>
       </td>
       <td className="p-3">{row.reviewFlags.length?<span className="inline-flex items-center gap-1 text-amber-700"><AlertTriangle className="h-4 w-4"/>{row.reviewFlags.length} تنبيه</span>:<span className="text-slate-500">لا تنبيهات مكتشفة</span>}</td>
-      <td className="p-3"><button type="button" onClick={()=>void selectOrder(row)} className="inline-flex items-center gap-1 rounded border px-2 py-1" aria-expanded={selected===row.orderId} aria-label={'تفاصيل '+row.orderName}>{selected===row.orderId?<ChevronUp className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>} فتح</button></td>
+      <td className="p-3"><button type="button" onClick={()=>void selectOrder(row)} className="inline-flex items-center gap-1 rounded border px-2 py-1" aria-expanded={selected===row.companyId+':'+row.orderId} aria-label={'تفاصيل '+row.orderName}>{selected===row.companyId+':'+row.orderId?<ChevronUp className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>} فتح</button></td>
      </tr>
-     {selected===row.orderId?<tr className="bg-slate-50/70 dark:bg-slate-950/50"><td colSpan={9} className="p-4">
+     {selected===row.companyId+':'+row.orderId?<tr className="bg-slate-50/70 dark:bg-slate-950/50"><td colSpan={9} className="p-4">
       <div className="mb-3 flex flex-wrap gap-2">{row.reviewFlags.map(flag=><span key={flag} className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-900">{flagLabel[flag]}</span>)}</div>
       {detailLoading?<p>جارٍ تحميل تفاصيل الأوردر…</p>:detailError?<p role="alert" className="text-red-600">{detailError}</p>:detail?
       <div className="space-y-4">
