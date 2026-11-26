@@ -16,6 +16,10 @@ values
  (4002,1102,1,101,900,501,'2026-11-05T12:00:00+00',1,10,'direct',3002,'done','synthetic November return'),
  (4003,1101,1,101,900,501,'2026-10-06T12:00:00+00',2,20,'direct',3001,'done','synthetic possible duplicate'),
  (5001,2101,2,101,902,501,'2026-11-05T12:00:00+00',1,10,'direct',3003,'done','synthetic company-two return');
+-- Force a deliberate overlapping Odoo order ID across the two companies.
+-- The UI/detail key MUST include company_id; same numeric ID is not globally unique.
+update public.product_sales_from_june1 set order_id=1001
+ where company_id=2 and odoo_line_id=2101;
 -- Authorized company 2 manager for isolation tests.
 insert into public.app_user_roles(user_id,is_active,role) values
  ('00000000-0000-0000-0000-000000000002',true,'manager'),
