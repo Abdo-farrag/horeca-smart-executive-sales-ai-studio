@@ -76,3 +76,12 @@ Do not automatically apply the SQL proposal based only on synthetic tests. A mis
 - NO repair table was invented, no migrations were manually pushed, and no Production objects changed. Do not rerun rebase blindly or claim staging is ready.
 - Remediation gate: inventory earliest missing bootstrap objects and their dependencies from the original schema, reconstruct migration history in a verified disposable environment with schema-only source provenance, then rerun branch migration sequence; alternatively restore a reviewed staging schema snapshot. Check other historic migrations for similar dependencies.
 - Until complete, continue only with isolated PostgreSQL CI fixtures and read-only source audits. Hourly billing continues while this branch exists; delete after explicit decision if repair is blocked.
+## Follow-up after staging-only bootstrap
+
+- An empty public.raw_products table was added to the **development branch only**, reproduced from original database catalog; exact SQL logged in docs/otc-audit-staging-raw-products-bootstrap-2026-11-26.md.
+- After one branch rebase, migration history advanced to 20260701230629 (upgrade_procurement_june1), confirming the first blocking dependency was resolved on staging.
+- The branch then entered MIGRATIONS_FAILED again before 20260702193815 (use_manual_stock_in_procurement). That historical migration creates public.v_current_stock using public.manual_current_stock, which was also created outside the replayed migration history.
+- The next migration also references historical procurement tables such as sku_master, purchase_recommendations and sku_supplier_settings. Do not repeatedly create empty objects just to get a green migration run.
+- **Stop condition triggered:** staging lacks a trustworthy, replayable baseline for several historical public tables. We cannot certify the audit migrations by patching one bootstrap table at a time.
+- Recommended fix: reconstruct a comprehensive **schema-only baseline** of the actual pre-July production database and place it before the earliest dependent migrations in a controlled test/replay workflow; do not retrospectively modify production migration history without careful reconciliation.
+- At this point no November audit schema or probe was deployed to staging, and no Production objects were changed.
