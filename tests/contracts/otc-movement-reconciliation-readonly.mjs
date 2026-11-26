@@ -20,6 +20,8 @@ const service={
      [{company_id:1,odoo_return_move_id:20}];
     if(scenario==="missing"&&table==="otc_return_lines")rows=[];
     if(scenario==="extra"&&table==="otc_return_lines")rows.push({company_id:1,odoo_return_move_id:99});
+    if(scenario==="snapshot_duplicate"&&table==="otc_return_lines")rows.push({company_id:1,odoo_return_move_id:20});
+    if(scenario==="invalid_snapshot_id"&&table==="otc_return_lines")rows.push({company_id:1,odoo_return_move_id:"invalid"});
     return {data:rows,error:null};
    },
   };
@@ -57,6 +59,8 @@ runInNewContext(js,{
     {id:20,company_id:[scenario==="leak"?2:1,"MAS"],picking_id:[2,"RET"],
      origin_returned_move_id:[10,"Original"],state:"done"},
    ];
+   if(scenario==="odoo_duplicate")items.push({...items[1]});
+   if(scenario==="odoo_invalid")items[1].id=0;
    return {ok:true,json:async()=>({result:items})};
   }
   throw Error("Unexpected Odoo model "+model);
@@ -94,5 +98,18 @@ assert.equal(x.body.returns,undefined);
 scenario="limit";x=await call({},"jwt");
 assert.equal(x.body.status,"INCOMPLETE_WINDOW");assert.equal(x.body.reason,"PICKING_LIMIT_EXCEEDED");
 assert.equal(x.body.deliveries,undefined);
+for(const [caseName,reason] of [
+ ["snapshot_duplicate","DUPLICATE_SNAPSHOT_MOVE_ID"],
+ ["invalid_snapshot_id","INVALID_SNAPSHOT_MOVE_ID"],
+ ["odoo_duplicate","INVALID_OR_DUPLICATE_ODOO_MOVE_ID"],
+ ["odoo_invalid","INVALID_OR_DUPLICATE_ODOO_MOVE_ID"],
+]){
+ scenario=caseName;x=await call({},"jwt");
+ assert.equal(x.status,200);
+ assert.equal(x.body.status,"INCOMPLETE_WINDOW",caseName);
+ assert.equal(x.body.reason,reason,caseName);
+ assert.equal(x.body.deliveries,undefined,caseName);
+ assert.equal(x.body.writes_performed,0,caseName);
+}
 assert.equal(writes,0);
 console.log("✓ bounded movement reconciliation, authorization, missing/extra IDs, truncation and fail-closed source scope");
