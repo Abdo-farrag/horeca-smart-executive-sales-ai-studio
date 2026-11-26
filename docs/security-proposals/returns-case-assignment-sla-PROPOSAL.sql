@@ -30,6 +30,23 @@ create table public.otc_return_case_assignment_events(
  occurred_at timestamptz not null default now()
 );
 create index otc_assignment_events_case_idx on public.otc_return_case_assignment_events(case_key,id);
+-- Prevent accidental/eventual privileged UPDATE, DELETE or TRUNCATE of the
+-- append-only evidence log (owners could still deliberately disable triggers).
+create or replace function public.otc_reject_assignment_event_modification()
+returns trigger language plpgsql security invoker
+set search_path=pg_catalog,public
+as $
+begin
+ raise exception 'ASSIGNMENT_EVENTS_APPEND_ONLY' using errcode='P0001';
+end;
+$;
+revoke all on function public.otc_reject_assignment_event_modification() from public,anon,authenticated;
+create trigger otc_assignment_events_no_update_delete
+before update or delete on public.otc_return_case_assignment_events
+for each row execute function public.otc_reject_assignment_event_modification();
+create trigger otc_assignment_events_no_truncate
+before truncate on public.otc_return_case_assignment_events
+for each statement execute function public.otc_reject_assignment_event_modification();
 alter table public.otc_return_case_assignments enable row level security;
 alter table public.otc_return_case_assignment_events enable row level security;
 revoke all on public.otc_return_case_assignments,public.otc_return_case_assignment_events from public,anon,authenticated;
