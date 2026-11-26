@@ -7,6 +7,7 @@ const raw=readFileSync("supabase/functions/probe-odoo18-movement-reconciliation/
  .replace(/^import \{ createClient \} from "npm:[^\n]+\n/m,"");
 const js=transformSync(raw,{loader:"ts",target:"es2022",format:"iife"}).code;
 let handler,odooCalls=0,writes=0,user=null,role=null,allowed=[1],scenario="match";
+const snapshotRanges=[];
 const service={
  auth:{getUser:async()=>({data:{user},error:null})},
  from(table){
@@ -15,12 +16,20 @@ const service={
   return {
    select(value){states.field=value;return this;},
    eq(){return this;},gte(){return this;},lt(){return this;},order(){return this;},
-   async range(){
+   async range(from,to){
+    snapshotRanges.push({table,from,to,scenario});
+    assert.ok(to-from+1<=500,"Every PostgREST request must stay below a typical 1000-row cap");
     let rows=table==="otc_delivery_lines"?[{company_id:1,odoo_move_id:10}]:
      [{company_id:1,odoo_return_move_id:20}];
     if(scenario==="missing"&&table==="otc_return_lines")rows=[];
     if(scenario==="extra"&&table==="otc_return_lines")rows.push({company_id:1,odoo_return_move_id:99});
-    return {data:rows,error:null};
+    if(scenario==="snapshot_duplicate"&&table==="otc_return_lines")rows.push({company_id:1,odoo_return_move_id:20});
+    if(scenario==="invalid_snapshot_id"&&table==="otc_return_lines")rows.push({company_id:1,odoo_return_move_id:"invalid"});
+    if(table==="otc_delivery_lines"&&scenario==="snapshot_pages")
+      rows=Array.from({length:503},(_,i)=>({company_id:1,odoo_move_id:10+i}));
+    if(table==="otc_delivery_lines"&&scenario==="snapshot_limit")
+      rows=Array.from({length:2001},(_,i)=>({company_id:1,odoo_move_id:10+i}));
+    return {data:rows.slice(from,to+1),error:null};
    },
   };
  },
@@ -57,6 +66,8 @@ runInNewContext(js,{
     {id:20,company_id:[scenario==="leak"?2:1,"MAS"],picking_id:[2,"RET"],
      origin_returned_move_id:[10,"Original"],state:"done"},
    ];
+   if(scenario==="odoo_duplicate")items.push({...items[1]});
+   if(scenario==="odoo_invalid")items[1].id=0;
    return {ok:true,json:async()=>({result:items})};
   }
   throw Error("Unexpected Odoo model "+model);
@@ -94,5 +105,32 @@ assert.equal(x.body.returns,undefined);
 scenario="limit";x=await call({},"jwt");
 assert.equal(x.body.status,"INCOMPLETE_WINDOW");assert.equal(x.body.reason,"PICKING_LIMIT_EXCEEDED");
 assert.equal(x.body.deliveries,undefined);
+for(const [caseName,reason] of [
+ ["snapshot_duplicate","DUPLICATE_SNAPSHOT_MOVE_ID"],
+ ["invalid_snapshot_id","INVALID_SNAPSHOT_MOVE_ID"],
+ ["odoo_duplicate","INVALID_OR_DUPLICATE_ODOO_MOVE_ID"],
+ ["odoo_invalid","INVALID_OR_DUPLICATE_ODOO_MOVE_ID"],
+]){
+ scenario=caseName;x=await call({},"jwt");
+ assert.equal(x.status,200);
+ assert.equal(x.body.status,"INCOMPLETE_WINDOW",caseName);
+ assert.equal(x.body.reason,reason,caseName);
+ assert.equal(x.body.deliveries,undefined,caseName);
+ assert.equal(x.body.writes_performed,0,caseName);
+}
+scenario="snapshot_pages";x=await call({},"jwt");
+assert.equal(x.status,200);
+assert.equal(x.body.status,"ID_MISMATCH");
+assert.equal(x.body.deliveries.snapshot_count,503);
+assert.equal(x.body.deliveries.extra_in_snapshot_count,502);
+assert.ok(snapshotRanges.some(r=>r.scenario==="snapshot_pages"&&r.table==="otc_delivery_lines"&&r.from===500),
+ "Second snapshot page must be fetched, not silently truncated");
+scenario="snapshot_limit";x=await call({},"jwt");
+assert.equal(x.status,200);
+assert.equal(x.body.status,"INCOMPLETE_WINDOW");
+assert.equal(x.body.reason,"SNAPSHOT_LIMIT_EXCEEDED");
+assert.equal(x.body.deliveries,undefined);
+assert.ok(snapshotRanges.some(r=>r.scenario==="snapshot_limit"&&r.table==="otc_delivery_lines"&&r.from===2000),
+ "Sentinel fifth page must reject 2001+ source movements");
 assert.equal(writes,0);
 console.log("✓ bounded movement reconciliation, authorization, missing/extra IDs, truncation and fail-closed source scope");
