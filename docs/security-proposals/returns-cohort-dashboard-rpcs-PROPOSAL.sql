@@ -125,7 +125,9 @@ begin
    coalesce(sum(credited_value),0)::numeric credited_value,
    coalesce(sum(returned_value),0)::numeric returned_value,
    count(*) filter(where array_length(review_flags,1)>0)::integer flagged_orders
-  from filtered
+  -- KPI cards always refer to ALL eligible orders in the selected company/date
+  -- cohort. Search/review filters only change the table, not KPI denominators.
+  from enriched
  ),
  page as (
   select * from filtered
