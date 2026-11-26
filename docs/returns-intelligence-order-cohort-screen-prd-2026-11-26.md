@@ -56,3 +56,16 @@ New sidebar item **مركز مراجعة المرتجعات**, isolated from Ord
 5. Validate per-order review candidates against original Odoo source, warehouse return documents and Finance credit notes. Keep manual review states versioned with actor and timestamp using existing proposed review audit workflow, but do not auto-approve or label fraud.
 6. Validate bounded pagination, date boundaries in Cairo, partial cohort maturity, refund/credit-note timing, and export scope.
 7. Keep existing Order-to-Cash KPIs and filters unchanged. Do not auto-merge, deploy, or re-create paid staging without user approval.
+
+## Readiness update — reproducible PostgreSQL verification
+
+The isolated GitHub Actions PostgreSQL 17 suite now creates a source-shaped canonical order-line reconciliation fixture, applies the **proposal SQL** without touching Production, and tests:
+- October orders with returns received in November stay in October's cohort.
+- Multi-movement joins cannot duplicate monetary sums (synthetic company-one exact totals: ordered 170, gross delivered 150, returns 50, net delivered 100, credited 20).
+- Exact numeric order ID overlap between two companies does not allow cross-company detail access.
+- Active manager authorization and company scope; sales rep, inactive staff, anon are denied.
+- Dashboard summary remains the **full company/date cohort**, independent of status/search filters; pagination count/table respond to those filters. Do not relabel the summary as filtered search results.
+- UI uses `company_id:order_id` as its selection key, ignores out-of-order detail responses, and verifies returned detail identity.
+- Review statuses remain `not_available` until a real versioned review record source exists.
+
+This **synthetic CI acceptance is not real-JWT browser UAT, source Odoo completeness, approved RLS remediation, or deployment**. The new RPCs remain proposals only. The paid staging branch was deleted before this work, and was not recreated.
