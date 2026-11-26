@@ -27,7 +27,7 @@ begin
   raise exception 'WRONG_ORDER_SHOULD_HAVE_FAILED';
  exception when insufficient_privilege then null;end;
  -- Disappearance does NOT auto-resolve, and history stays associated with order.
- perform set_config('app_test.case_key',k,true);
+ perform set_config('app_test.case_key',k,false);
 end $$;
 reset role;
 delete from public.otc_return_lines where odoo_return_move_id=4003;
