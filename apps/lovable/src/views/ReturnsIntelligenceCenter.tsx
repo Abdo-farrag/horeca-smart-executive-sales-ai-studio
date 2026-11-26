@@ -190,17 +190,21 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
   {orders?<section className="overflow-hidden rounded-xl border bg-white dark:border-slate-800 dark:bg-slate-900">
    <div className="flex flex-wrap justify-between gap-3 p-4"><h2 className="font-black">الأوردرات المرتبطة بالفترة</h2><span className="text-xs text-slate-500">{number(total)} أوردر مطابق للفلاتر</span></div>
    <div className="overflow-x-auto"><table className="min-w-full text-right text-xs">
-    <thead className="bg-slate-50 dark:bg-slate-800"><tr><th className="p-3">الأوردر</th><th className="p-3">العميل / المندوب</th><th className="p-3">تاريخ الأوردر</th><th className="p-3">قيمة الطلب</th><th className="p-3">التسليم</th><th className="p-3">المرتجع</th><th className="p-3">مؤشرات المراجعة</th><th className="p-3">تفاصيل</th></tr></thead>
+    <thead className="bg-slate-50 dark:bg-slate-800"><tr><th className="p-3">الأوردر</th><th className="p-3">العميل / المندوب</th><th className="p-3">تاريخ الأوردر</th><th className="p-3">قيمة الطلب</th><th className="p-3">التسليم</th><th className="p-3">المرتجع</th><th className="p-3">حالة الأوردر</th><th className="p-3">مؤشرات المراجعة</th><th className="p-3">تفاصيل</th></tr></thead>
     <tbody>{orders.map(row=><React.Fragment key={row.companyId+'-'+row.orderId}>
      <tr className="border-t dark:border-slate-800">
       <td className="p-3 font-bold">{row.orderName}<span className="block text-slate-500">{row.companyId===1?'MAS':'Horeca Smart'}</span></td>
       <td className="p-3">{row.customerName}<span className="block text-slate-500">{row.salesperson??'غير محدد'}</span></td>
       <td className="p-3">{row.orderDate.slice(0,10)}</td><td className="p-3">{amount(row.orderedValue)}</td><td className="p-3">{amount(row.deliveredValue)}</td>
       <td className="p-3">{amount(row.returnedValue)}<span className="block text-slate-500">{number(row.returnEvents)} حركة</span></td>
+      <td className="p-3">
+       {row.returnEvents>0?'مرتجع مسجل':row.deliveredValue>0?'تسليم ظاهر':'التسليم غير مثبت في الـSnapshot'}
+       <span className="block text-slate-500">{row.reviewStatus==='not_reviewed'?'لم تُراجع الحالة':'مراجعة: '+row.reviewStatus}</span>
+      </td>
       <td className="p-3">{row.reviewFlags.length?<span className="inline-flex items-center gap-1 text-amber-700"><AlertTriangle className="h-4 w-4"/>{row.reviewFlags.length} تنبيه</span>:<span className="text-slate-500">لا تنبيهات مكتشفة</span>}</td>
       <td className="p-3"><button type="button" onClick={()=>void selectOrder(row)} className="inline-flex items-center gap-1 rounded border px-2 py-1" aria-expanded={selected===row.orderId} aria-label={'تفاصيل '+row.orderName}>{selected===row.orderId?<ChevronUp className="h-4 w-4"/>:<ChevronDown className="h-4 w-4"/>} فتح</button></td>
      </tr>
-     {selected===row.orderId?<tr className="bg-slate-50/70 dark:bg-slate-950/50"><td colSpan={8} className="p-4">
+     {selected===row.orderId?<tr className="bg-slate-50/70 dark:bg-slate-950/50"><td colSpan={9} className="p-4">
       <div className="mb-3 flex flex-wrap gap-2">{row.reviewFlags.map(flag=><span key={flag} className="rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-900">{flagLabel[flag]}</span>)}</div>
       {detailLoading?<p>جارٍ تحميل تفاصيل الأوردر…</p>:detailError?<p role="alert" className="text-red-600">{detailError}</p>:detail?
       <div className="space-y-4">
