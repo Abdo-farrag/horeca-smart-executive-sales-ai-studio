@@ -2,6 +2,7 @@ import React, {useEffect, useRef, useState} from 'react';
 import {AlertTriangle, ChevronDown, ChevronUp, RefreshCw, RotateCcw, Search, ShieldCheck} from 'lucide-react';
 import {useApp} from '../context/AppContext';
 import {callAnalyticsRpc} from '../analytics/client';
+import {OrderCaseReviewPanel} from '../components/OrderCaseReviewPanel';
 
 type ReviewFlag = 'MISSING_ORIGINAL_DELIVERY' | 'UNVERIFIED_LINK' | 'POSSIBLE_DUPLICATE_RETURN' |
  'EXCESS_RETURN_UOM_UNVERIFIED' | 'CREDIT_NOTE_PENDING' | 'DATA_NOT_READY';
@@ -223,6 +224,7 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
        <h3 className="font-bold">حركات المرتجعات المرتبطة بالأوردر</h3>
        {detail.returns.length?<div className="space-y-2">{detail.returns.map(ev=><p className="rounded border p-2 text-xs" key={ev.moveId}>حركة #{ev.moveId} — تاريخ الاستلام {ev.receiptDate.slice(0,10)} — كمية {ev.quantity} — التسليم الأصلي #{ev.originalMoveId??'غير معروف'} — السبب: {ev.reason||'غير مسجل'} — الربط: {ev.linkConfidence}</p>)}</div>:<p className="text-slate-500">لا توجد حركات مرتجع ظاهرة لهذا الأوردر في المصدر.</p>}
        {detail.notes.map((n,i)=><p key={i} className="text-amber-700">{n}</p>)}
+       <OrderCaseReviewPanel companyId={row.companyId} orderId={row.orderId}/>
       </div>:null}
      </td></tr>:null}
     </React.Fragment>)}</tbody>
