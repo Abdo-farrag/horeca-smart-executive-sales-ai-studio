@@ -43,3 +43,26 @@
 - Sign-off from Warehouse, Finance, and deployment owner.
 
 This documentation-only PR does not apply SQL, deploy Edge Functions, activate probes, sync Odoo, or change production.
+## CRITICAL SECURITY PRE-FLIGHT FINDING — direct authenticated SELECT
+On 2026-11-26 read-only catalog inspection of the connected Odoo Supabase project found:
+- public.otc_delivery_lines, public.otc_return_lines and public.otc_invoice_lines have RLS enabled **and** authenticated role table-level SELECT permission.
+- Each has an existing permissive SELECT policy named customer360_authenticated_read, with USING (auth.uid() IS NOT NULL), not scoped to company_id or staff role.
+- Therefore RLS, by itself, does not presently impose company isolation on these tables for signed-in users with Data API access. No evidence of actual unauthorized use was collected.
+- The existing authorized_company_ids() is a SECURITY DEFINER scoped function: active sales_rep/supervisor -> one company, manager/admin -> both, unauthenticated/missing profile -> exception.
+- Role inventory at inspection contained two active admin users. Do not infer this remains true after onboarding staff.
+- There was no separately verified isolated Supabase staging environment. The only development-branch result for the Odoo project was a default 'main' entry, not evidence of a safe disposable staging clone.
+
+**DO NOT deploy audit RPCs to Production before this direct-read surface is reviewed.**
+
+Proposed minimal defense in depth (not applied) is in
+docs/security-proposals/otc-authenticated-company-restrictive-policy-PROPOSAL.sql.
+It adds a restrictive company policy on each OTC table rather than immediately removing Customer360's permissive policy. Its behavior is exercised in synthetic SQL tests in tests/sql/otc/90_restrictive_company_policy_proposal_assertions.sql.
+
+Production change remains blocked until real signed-in JWT tests confirm:
+1. same-company salesperson sees only authorized rows;
+2. cross-company salesperson cannot see the other company's rows;
+3. inactive/missing-role users cannot read;
+4. managers/admins retain their approved two-company scope;
+5. Customer 360 and the existing authorized server RPCs still work.
+
+Do not automatically apply the SQL proposal based only on synthetic tests. A missing isolated staging environment is a stop condition, not authorization to test by changing Production.
