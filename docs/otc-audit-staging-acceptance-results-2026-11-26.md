@@ -1,3 +1,5 @@
+> **ARCHIVED TEST RESULT — STAGING DELETED.** After staging UAT, the user explicitly instructed deletion of `otc-audit-staging-20261126`. Supabase deletion succeeded and a fresh branch list confirmed only default `main` remains. All 168 staging-only migrations, restrictive RLS experiment, and two staging probe deployments were discarded with the branch. These historical test results do **not** describe a currently accessible staging endpoint; they have not been promoted to Production. Hourly branch billing ended at deletion (past accrued fees may remain).
+
 # OTC returns audit — actual staging acceptance report
 
 **Date:** 2026-11-26
