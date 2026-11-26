@@ -12,7 +12,7 @@ type OrderRow = {
  lineCount:number;reviewFlags:ReviewFlag[];reviewStatus:string;
 };
 type Summary = {orderCount:number;ordersWithReturns:number;orderedValue:number;returnedValue:number;
- returnOrderRatePct:number|null;returnValueRatePct:number|null;flaggedOrders:number;unlinkedReturnMoves:number;
+ returnOrderRatePct:number|null;returnValueRatePct:number|null;flaggedOrders:number;unlinkedReturnMoves:number|null;
  snapshotThrough:string|null};
 type DetailLine = {saleOrderLineId:number;productName:string;orderedQty:number|null;deliveredQty:number|null;
  returnedQty:number|null;orderedValue:number;deliveredValue:number;returnedValue:number;
@@ -53,7 +53,7 @@ const parseSummary=(s:unknown):Summary=>{
   orderedValue:num(x.ordered_value),returnedValue:num(x.returned_value),
   returnOrderRatePct:x.return_order_rate_pct==null?null:num(x.return_order_rate_pct),
   returnValueRatePct:x.return_value_rate_pct==null?null:num(x.return_value_rate_pct),
-  flaggedOrders:num(x.flagged_orders),unlinkedReturnMoves:num(x.unlinked_return_moves),
+  flaggedOrders:num(x.flagged_orders),unlinkedReturnMoves:x.unlinked_return_moves==null?null:num(x.unlinked_return_moves),
   snapshotThrough:x.snapshot_through==null?null:String(x.snapshot_through)};
 };
 const parseDetail=(v:unknown):Detail=>{
@@ -180,7 +180,7 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
   </section>
   <div className="flex flex-wrap gap-3 text-xs text-slate-500">
    <span>قيمة طلبات الفترة: {amount(summary.orderedValue)}</span>
-   <span>مرتجعات غير قابلة للربط بأوردر محدد: {number(summary.unlinkedReturnMoves)} — تظهر في قائمة مستقلة عند تفعيل مصدرها</span>
+   <span>مرتجعات غير قابلة للربط بأوردر محدد: {summary.unlinkedReturnMoves===null?'غير قابل للحساب للدفعة':number(summary.unlinkedReturnMoves)} — تظهر في قائمة مستقلة عند تفعيل مصدرها</span>
    <span>آخر Snapshot: {summary.snapshotThrough||'غير متاح'}</span>
   </div></>:null}
 
