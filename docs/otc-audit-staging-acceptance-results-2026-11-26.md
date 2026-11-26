@@ -47,4 +47,12 @@ The original Supabase DB was not reproducible from recorded migrations without a
 - Warehouse and Finance UAT, rollback review and explicit Production authorization remain open.
 - Two read-only probes exist **only on staging**. No production audit migration, RLS hardening or Edge Function was deployed.
 
+## Final staging security advisor review
+
+- Supabase Security Advisor flagged `function_search_path_mutable` on the new `otc_return_audit_case_key` helper. Pinning its search_path to `pg_catalog` was applied and regression-checked on staging only, using `docs/security-proposals/otc-case-key-search-path-hardening-PROPOSAL.sql`. The finding cleared for this helper; two unrelated older functions remain flagged. [Supabase remediation](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable).
+- Advisor flags RLS-without-policy on the raw review/UoM tables. This is intended: these sensitive tables grant no browser SELECT; service-only / manager RPC access is required. [Advisory explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+- Advisor flags authenticated SECURITY DEFINER RPCs. These are intentionally authenticated entrypoints and enforce active admin/manager plus authorized company in their bodies, but **real signed-in JWT tests remain mandatory**. [Advisory explanation](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable).
+- Broad inherited advisor errors (including definer views and existing public tables with RLS disabled) require a separate organization-wide review, not ad hoc changes to unrelated systems. They have not been fixed or approved for Production here.
+- After the case-key hardening test, staging migration history contains **168** entries (160 parent + 6 audit + 1 restrictive OTC RLS + 1 search_path hardening). Production remains unchanged.
+
 **Go-live status: BLOCKED.** The purpose of this report is to preserve inspectable evidence, not to request or perform a production merge. Staging remains billable until deleted.
