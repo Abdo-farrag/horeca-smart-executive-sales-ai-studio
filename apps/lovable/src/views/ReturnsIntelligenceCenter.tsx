@@ -11,7 +11,7 @@ type OrderRow = {
  returnedValue:number;creditedValue:number;returnEvents:number;lastReturnAt:string|null;
  lineCount:number;reviewFlags:ReviewFlag[];reviewStatus:string;
 };
-type Summary = {orderCount:number;ordersWithReturns:number;orderedValue:number;returnedValue:number;
+type Summary = {orderCount:number;ordersWithReturns:number;orderedValue:number;deliveredValue:number;netDeliveredValue:number;creditedValue:number;returnedValue:number;
  returnOrderRatePct:number|null;returnValueRatePct:number|null;flaggedOrders:number;unlinkedReturnMoves:number|null;
  snapshotThrough:string|null};
 type DetailLine = {saleOrderLineId:number;productName:string;orderedQty:number|null;deliveredQty:number|null;
