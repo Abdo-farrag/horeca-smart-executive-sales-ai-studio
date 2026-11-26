@@ -9,6 +9,10 @@ import { useApp } from '../context/AppContext';
 import { fetchOrderToCashControlData, type OrderToCashControlData } from '../services/orderToCashService';
 import type { OtcDateBasis } from '../analytics/orderToCash';
 
+// Backend audit RPCs and Odoo probes are not deployed with the dashboard.
+// Keep controls hidden until an explicit, environment-specific release switch.
+const auditPanelsEnabled = import.meta.env.VITE_OTC_RETURNS_AUDIT_ENABLED === 'true';
+
 const money = (value: number) => `${value.toLocaleString('en-US', { maximumFractionDigits: 0 })} EGP`;
 
 const KpiCard: React.FC<{ label: string; value: string; note?: string; tone?: 'normal' | 'warn' }> = ({ label, value, note, tone = 'normal' }) => (
@@ -159,10 +163,12 @@ export const OrderToCashReturnsControl: React.FC = () => {
           </table>
         </div>
       </section>
-      <OtcMovementReconciliationPanel />
-      <ReturnEvidenceCoveragePanel />
-      <ReturnAuditCandidatesPanel />
-      <ReturnAuditHistoryPanel />
+      {auditPanelsEnabled ? (<>
+        <OtcMovementReconciliationPanel />
+        <ReturnEvidenceCoveragePanel />
+        <ReturnAuditCandidatesPanel />
+        <ReturnAuditHistoryPanel />
+      </>) : null}
     </div>
   );
 };
