@@ -22,6 +22,17 @@ begin
    raise exception 'Cohort values multiplied by movement joins or failed to include later return: %',x->'summary';end if;
  if (x->>'total_rows')::int<>3 or jsonb_array_length(x->'orders')<>3 then
    raise exception 'Company 1 pagination/summary mismatch';end if;
+ -- Search and status filters change the review queue only, not the cohort KPI denominator.
+ select payload into x from public.analytics_returns_cohort_dashboard_v1(
+  '2026-10-01','2026-10-31',1,null,'flagged',40,0);
+ if (x->'summary'->>'order_count')::int<>3 or (x->>'total_rows')::int<>2 then
+   raise exception 'Flagged filter changed original cohort denominator: %',x;end if;
+ select payload into x from public.analytics_returns_cohort_dashboard_v1(
+  '2026-10-01','2026-10-31',1,'NO_MATCH_SENTINEL','all',40,0);
+ if (x->'summary'->>'order_count')::int<>3 or (x->>'total_rows')::int<>0 then
+   raise exception 'Search filter changed original cohort KPI: %',x;end if;
+ select payload into x from public.analytics_returns_cohort_dashboard_v1(
+  '2026-10-01','2026-10-31',1,null,'all',40,0);
  if x->'summary'->'return_value_rate_pct'<>'null'::jsonb then
    raise exception 'Unknown valuation-basis rate must remain null';end if;
  if x->'summary'->'unlinked_return_moves'<>'null'::jsonb then
