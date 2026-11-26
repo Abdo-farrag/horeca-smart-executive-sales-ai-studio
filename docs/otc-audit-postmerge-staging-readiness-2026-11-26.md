@@ -1,0 +1,127 @@
+# OTC audit — post-merge staging readiness (2026-11-26)
+
+## Observed state (read-only verification)
+- PR #14 merged into main as bc6858468b575869731ad5dc564c14bfa93560d0.
+- Supabase project afzxhuaeggrngvchbvur (named odoo) contains the existing sync-odoo18-order-to-cash Edge Function and OTC source snapshots.
+- The new review/UoM tables, audit RPCs, and coverage view were absent from the actual database at the time of inspection.
+- The new probe-odoo18-uom-readonly and probe-odoo18-movement-reconciliation Edge Functions were absent from deployed function inventory.
+- A successful GitHub merge is NOT a database migration or Edge Function deployment.
+
+## Baseline snapshots (not verified Odoo source completeness)
+| Company | All stored deliveries | All stored returns | Nov 1+ deliveries | Nov 1+ returns | Nov 1+ returns without direct order-line link | Nov 1+ return originals missing from snapshot |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| MAS (company 1) | 1,850 | 217 | 825 | 85 | 4 | 12 |
+| Horeca Smart (company 2) | 32,481 | 2,395 | 5,032 | 304 | 12 | 21 |
+
+- Last snapshot synced about 2026-11-26 00:35 UTC; this does not prove all source moves were available.
+- Return originals absent from a snapshot could be earlier than its source window; this is NOT proof of an inventory error.
+- Read-only numeric return>delivery grouping over all stored direct-link line/product data: MAS 6 groups; Horeca Smart 91 groups. All are strictly PROVISIONAL pending verified quantity/UoM conversions and original movement coverage.
+
+## Staging-first deployment runbook (separate explicit approval required)
+1. Freeze inventory of existing database objects, security policies, function signatures and backups. Prepare an isolated staging database with production-shaped schema/data.
+2. Run docs/otc-audit-live-preflight-readonly.sql on the intended project; record counts, objects, and company mapping. Do not treat GitHub CI fixture as a production security test.
+3. Apply and test merged SQL migrations in this exact order on staging only:
+   - supabase/migrations/20261124010000_otc_return_audit_candidates.sql
+   - supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql
+   - supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql
+   - supabase/migrations/20261124013000_otc_return_audit_history.sql
+   - supabase/migrations/20261124014000_otc_uom_evidence_gate.sql
+   - supabase/migrations/20261125010000_otc_return_evidence_coverage.sql
+4. Verify real JWT authentication, active manager/admin access, company isolation, anonymous/sales rep denial, review version conflicts and immutable review-event history. Confirm source tables remain non-browser-readable.
+5. Deploy the read-only probes to staging manually with verify_jwt=true, no cron and no Odoo writes. Confirm Odoo source scope and secret isolation.
+6. Run each probe manually for one company and up to seven days. Validate Odoo executed quantity semantics, movement UoM, product base UoM, conversion category/factor, original move IDs, timestamps and picking eligibility.
+7. Reconcile complete bounded Odoo move IDs against OTC snapshot, separate outgoing deliveries from customer returns and compare with Warehouse and posted Finance credit notes. Sampled ID equality does not certify financial or quantity correctness.
+8. Review and approve a separate evidence-ingestion workflow only after native UoM conversion is independently validated. Do not auto-correct Odoo or promote provisional findings.
+9. Warehouse and Finance sign off sample warnings and incomplete original move evidence. Do not auto-close alerts when source snapshot changes.
+10. Production migration or function deployment requires a fresh, explicit go-live approval, rollback plan, owner and monitoring.
+
+## Release blockers
+- Successful main-commit CI and PostgreSQL tests.
+- Source-shaped staging schema, grants and RLS verified.
+- Original delivery and return movement coverage confirmed on real Odoo, including historical parent moves.
+- Approved verified UoM formula and reproducible source-provenance evidence.
+- Sign-off from Warehouse, Finance, and deployment owner.
+
+This documentation-only PR does not apply SQL, deploy Edge Functions, activate probes, sync Odoo, or change production.
+## CRITICAL SECURITY PRE-FLIGHT FINDING — direct authenticated SELECT
+On 2026-11-26 read-only catalog inspection of the connected Odoo Supabase project found:
+- public.otc_delivery_lines, public.otc_return_lines and public.otc_invoice_lines have RLS enabled **and** authenticated role table-level SELECT permission.
+- Each has an existing permissive SELECT policy named customer360_authenticated_read, with USING (auth.uid() IS NOT NULL), not scoped to company_id or staff role.
+- Therefore RLS, by itself, does not presently impose company isolation on these tables for signed-in users with Data API access. No evidence of actual unauthorized use was collected.
+- The existing authorized_company_ids() is a SECURITY DEFINER scoped function: active sales_rep/supervisor -> one company, manager/admin -> both, unauthenticated/missing profile -> exception.
+- Role inventory at inspection contained two active admin users. Do not infer this remains true after onboarding staff.
+- There was no separately verified isolated Supabase staging environment. The only development-branch result for the Odoo project was a default 'main' entry, not evidence of a safe disposable staging clone.
+
+**DO NOT deploy audit RPCs to Production before this direct-read surface is reviewed.**
+
+Proposed minimal defense in depth (not applied) is in
+docs/security-proposals/otc-authenticated-company-restrictive-policy-PROPOSAL.sql.
+It adds a restrictive company policy on each OTC table rather than immediately removing Customer360's permissive policy. Its behavior is exercised in synthetic SQL tests in tests/sql/otc/90_restrictive_company_policy_proposal_assertions.sql.
+
+Production change remains blocked until real signed-in JWT tests confirm:
+1. same-company salesperson sees only authorized rows;
+2. cross-company salesperson cannot see the other company's rows;
+3. inactive/missing-role users cannot read;
+4. managers/admins retain their approved two-company scope;
+5. Customer 360 and the existing authorized server RPCs still work.
+
+Do not automatically apply the SQL proposal based only on synthetic tests. A missing isolated staging environment is a stop condition, not authorization to test by changing Production.
+## 2026-11-26 — Actual Supabase Development Branch failure
+- User approved creation at quoted USD 0.01344/hour; branch ID f84f071e-5378-4327-93dc-77f6a0e9755c, project ref kwjgwdtcqejxgxwazrin, no Production data copy.
+- After branch creation and one rebase attempt, branch reported MIGRATIONS_FAILED, despite SQL connectivity.
+- The branch migrated only 20260605045814 (create_kartona_orders_database), populated kartona schema but left public without application tables; OTC and staff scope tables were absent.
+- Branch PostgreSQL error log around 2026-11-26 02:00–02:02 UTC: relation public.raw_products does not exist.
+- The next parent migration 20260701230629 (upgrade_procurement_june1) begins with a conditional barcode check followed by ALTER TABLE public.raw_products ADD COLUMN barcode, assuming raw_products already existed. Parent production does have raw_products; new branch does not.
+- Root cause: historical migration/bootstrap dependency on manually pre-existing public.raw_products that is not reconstructed by the recorded earlier migration. This is schema drift / non-replayable migration history, not a failure of the new OTC audit migration.
+- NO repair table was invented, no migrations were manually pushed, and no Production objects changed. Do not rerun rebase blindly or claim staging is ready.
+- Remediation gate: inventory earliest missing bootstrap objects and their dependencies from the original schema, reconstruct migration history in a verified disposable environment with schema-only source provenance, then rerun branch migration sequence; alternatively restore a reviewed staging schema snapshot. Check other historic migrations for similar dependencies.
+- Until complete, continue only with isolated PostgreSQL CI fixtures and read-only source audits. Hourly billing continues while this branch exists; delete after explicit decision if repair is blocked.
+## Follow-up after staging-only bootstrap
+
+- An empty public.raw_products table was added to the **development branch only**, reproduced from original database catalog; exact SQL logged in docs/otc-audit-staging-raw-products-bootstrap-2026-11-26.md.
+- After one branch rebase, migration history advanced to 20260701230629 (upgrade_procurement_june1), confirming the first blocking dependency was resolved on staging.
+- The branch then entered MIGRATIONS_FAILED again before 20260702193815 (use_manual_stock_in_procurement). That historical migration creates public.v_current_stock using public.manual_current_stock, which was also created outside the replayed migration history.
+- The next migration also references historical procurement tables such as sku_master, purchase_recommendations and sku_supplier_settings. Do not repeatedly create empty objects just to get a green migration run.
+- **Stop condition triggered:** staging lacks a trustworthy, replayable baseline for several historical public tables. We cannot certify the audit migrations by patching one bootstrap table at a time.
+- Recommended fix: reconstruct a comprehensive **schema-only baseline** of the actual pre-July production database and place it before the earliest dependent migrations in a controlled test/replay workflow; do not retrospectively modify production migration history without careful reconciliation.
+- At this point no November audit schema or probe was deployed to staging, and no Production objects were changed.
+
+## Third replay attempt — controlled multi-object bootstrap, still blocked
+
+- Compared parent information_schema, pg_indexes and pg_get_viewdef against missing historical bootstrap objects; stored **one** schema-only baseline in docs/staging-only-legacy-bootstrap-20261126.sql.
+- Applied only to staging kwjgwdtcqejxgxwazrin, with zero copied data. Its five missing historic tables were manual_current_stock, raw_sales_lines, sku_master, sku_supplier_settings and purchase_recommendations; the v_sales_90d view was reconstructed from source catalog. RLS enabled and browser read grants revoked for bootstrap tables.
+- A subsequent rebase replay advanced from migration 20260701230629 through 20260719151428 — now **12 migrations recorded**, but status MIGRATIONS_FAILED again on the next historical migration.
+- The next 20260719205205_create_odoo17_history_pipeline references public.customer_product_history in its archive copy step; read-only checks proved this table is absent from staging.
+- This demonstrates that even a multi-object bootstrap is incomplete. **Do not patch another table and rebase** until the full schema-only pre-history baseline is formally reconstructed and independently reviewed. The heuristic audit docs/otc-legacy-migration-dependency-audit-readonly.sql records first references vs recorded CREATE TABLE statements; it does not prove all object DDL or foreign-key/view/function dependencies are covered.
+- No November audit migrations deployed; no authenticated JWT or source UoM checks performed; no Production writes.
+- The staging branch is billed hourly. If further schema reconstruction will not be done immediately, delete the blocked branch after obtaining the user's direction (deletion loses the isolated investigative state).
+
+## Complete first-pass catalog inventory of historical unrecorded table dependencies
+
+The original migration-history text was scanned against explicit public schema object references and CREATE TABLE statements on the parent project. Nine parent public base tables were first referenced before any registered CREATE TABLE for them:
+raw_products, manual_current_stock, sku_master, sku_supplier_settings,
+purchase_recommendations, raw_sales_lines, customer_product_history,
+sync_logs, raw_customers.
+
+This is a *heuristic inventory*, not a proof that no references are unqualified or dynamic SQL. All nine empty table definitions were reconstructed from parent information_schema/pg_constraint, without copying production records. The first six were documented earlier; the remaining three are documented in docs/staging-only-legacy-bootstrap-completion-20261126.sql and applied to staging only. Rebase was requested after the completion.
+
+**Important operational distinctions:** A complete set of prerequisite tables does not mean their dependent views/functions/triggers/grants match Production. This development branch is an isolated *schema compatibility laboratory*, not an accurate clone of customers/stock movements. Only migrations whose preconditions exist can be tested there; use separate sample fixtures and real-JWT access tests where possible. No November 2026 OTC audit migration has been applied before migration history finishes successfully.
+
+## November 26 fourth replay: extension parity and scheduled-job gate
+
+A complete first-pass inventory of nine historical unrecorded tables was reconstructed using parent information_schema and key constraints. After schema-only staging bootstrap and another replay, the branch reached **42** migrations, through `20260724193656_verify_overview_bcrypt`, before a missing `cron.job` relation blocked `20260725224846_automate_manual_stock_and_sku_refresh`.
+
+Read-only extension comparison showed parent `pg_cron` installed in `pg_catalog`, but not enabled on the development branch. Confirmed Supabase pg_cron installation guide and enabled pg_cron in `kwjgwdtcqejxgxwazrin` only. Production extensions untouched.
+
+The migration `20260725224846` schedules a local `sync_manual_current_stock_from_odoo()` every six hours. A later `20260813091059` schedules a weekly local intelligence refresh. The staged database has no copied data, and these schedules must be **deactivated immediately after replay** before meaningful UAT; do not accidentally run jobs against real external services. An ALTER SYSTEM attempt to disable cron globally was rejected because the API wraps statements in a transaction, so no global disable was applied. After pg_cron install, another branch rebase was requested. Status and new migration count require verification before readiness claims.
+
+This is a staging-only schema investigation, not an activation of historical jobs in Production. Do NOT merge this branch to Supabase Production.
+
+## Replay continuation — missing views, pg_cron, and exact historical ACL prerequisite
+
+- Found five unrecorded legacy views in the original database and reconstructed their definitions as `docs/staging-only-legacy-unrecorded-views-20261126.sql`. On staging these views are `security_invoker=true` with browser grants revoked; this improves defense-in-depth but does not prove all production customer analytics behavior. They are schema-only.
+- The previously failing `20260804161841_customer_360_analytics_layer` was transactionally dry-run: its error was `relation v_customer_master does not exist`. After reconstructing the legacy views, migration replay moved beyond that point to **152** migrations.
+- Enabled `pg_cron` in the isolated staging DB to match source extension dependencies. Legacy replay created two jobs; both staging jobs were unscheduled via `cron.unschedule` and verified no active jobs at the time of check. Do not enable automatic inventory/market jobs during UAT.
+- The next `20261024200543_product_sales_write_hardening_20261024` has an exact ACL string preflight. Current empty staging had **different default grants** from the historic parent before that hardening migration. The source migration expects `{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}`. The staging-only table was temporarily granted that exact ACL to exercise the migration's removal of dangerous write rights, followed immediately by a rebase request.
+- **Important:** This temporarily permissive staging ACL is NOT an accepted end state. If migration replay fails to revoke those rights, manually revoke them from anon/authenticated before any staging API testing. Verify with `has_table_privilege` and exact `relacl` before granting anyone credentials. No source data resides in staging.
+- Any repairs above were made only to Supabase Development Branch `kwjgwdtcqejxgxwazrin`. No SQL or schedules applied to parent Production project `afzxhuaeggrngvchbvur`.
