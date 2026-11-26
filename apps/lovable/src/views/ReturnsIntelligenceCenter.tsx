@@ -50,7 +50,7 @@ const parseOrder=(r:unknown):OrderRow=>{
 };
 const parseSummary=(s:unknown):Summary=>{
  const x=plain(s);return {orderCount:num(x.order_count),ordersWithReturns:num(x.orders_with_returns),
-  orderedValue:num(x.ordered_value),returnedValue:num(x.returned_value),
+  orderedValue:num(x.ordered_value),deliveredValue:num(x.delivered_value),netDeliveredValue:num(x.net_delivered_value),creditedValue:num(x.credited_value),returnedValue:num(x.returned_value),
   returnOrderRatePct:x.return_order_rate_pct==null?null:num(x.return_order_rate_pct),
   returnValueRatePct:x.return_value_rate_pct==null?null:num(x.return_value_rate_pct),
   flaggedOrders:num(x.flagged_orders),unlinkedReturnMoves:x.unlinked_return_moves==null?null:num(x.unlinked_return_moves),
@@ -172,10 +172,13 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
 
   {error?<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error} — لا نعرض أرقامًا صفرية بديلة عن بيانات غير متاحة.</p>:null}
   {loading?<p role="status" className="text-sm text-slate-500">جاري تحميل الأوردرات والمرتجعات…</p>:null}
-  {summary?<><section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="ملخص فترة الأوردرات">
+  {summary?<><section className="grid grid-cols-2 gap-3 lg:grid-cols-3" aria-label="ملخص فترة الأوردرات">
    <SummaryCard label="عدد أوردرات الفترة" value={number(summary.orderCount)}/>
    <SummaryCard label="أوردرات عليها مرتجعات" value={number(summary.ordersWithReturns)} caption={pct(summary.returnOrderRatePct)+' من أوردرات الفترة'}/>
+   <SummaryCard label="إجمالي التسليم" value={amount(summary.deliveredValue)}/>
    <SummaryCard label="قيمة المرتجعات" value={amount(summary.returnedValue)} caption={pct(summary.returnValueRatePct)+' من إجمالي التسليم — عند توافق أساس التقييم'}/>
+   <SummaryCard label="صافي التسليم بعد المرتجعات" value={amount(summary.netDeliveredValue)}/>
+   <SummaryCard label="إشعارات دائنة مرتبطة بالأوردرات" value={amount(summary.creditedValue)} caption="تسويات محاسبية وليست خصمًا ثانيًا من التسليم"/>
    <SummaryCard label="أوردرات بها مؤشرات للمراجعة" value={number(summary.flaggedOrders)} caption="لا تعني أخطاء مؤكدة"/>
   </section>
   <div className="flex flex-wrap gap-3 text-xs text-slate-500">
