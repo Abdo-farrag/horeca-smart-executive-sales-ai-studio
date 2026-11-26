@@ -21,6 +21,38 @@ for(const base of bases){
  const supervisor=access.slice(access.indexOf('supervisor: new Set'),access.indexOf('manager: new Set'));
  assert.ok(!supervisor.includes("'returns-intelligence'"),base+': supervisor should not see review center');
 }
+for(const base of bases){
+ const parent=readFileSync(base+'/views/ReturnsIntelligenceCenter.tsx','utf8');
+ const child=readFileSync(base+'/components/OrderCaseReviewPanel.tsx','utf8');
+ assert.match(parent,/OrderCaseReviewPanel companyId=\{row.companyId\} orderId=\{row.orderId\}/,
+  base+': review must use BOTH company and order identity');
+ assert.match(child,/analytics_returns_cohort_order_cases_v1/,
+  base+': missing scoped order case read');
+ assert.match(child,/review_returns_cohort_order_case_v1/,
+  base+': missing versioned review save');
+ assert.match(child,/analytics_return_audit_history_events_v1/,
+  base+': missing immutable review history');
+ assert.match(child,/p_expected_version:r.reviewVersion/,
+  base+': review must guard optimistic concurrency');
+ assert.match(child,/!r.currentlyDetected/,
+  base+': disappeared alert must not be edited as if still current');
+}
+const caseSql=readFileSync('docs/security-proposals/returns-cohort-case-review-PROPOSAL.sql','utf8');
+assert.match(caseSql,/create table if not exists public\.otc_return_audit_case_order_links/,
+ 'Permanent order-case mapping needed');
+assert.match(caseSql,/case_key text primary key references public\.otc_return_audit_reviews/,
+ 'Map must reference an existing versioned review');
+assert.match(caseSql,/on conflict on constraint otc_return_audit_case_order_links_pkey do nothing/,
+ 'Never reassign a historical case to a different order');
+assert.match(caseSql,/CASE_ORDER_MAPPING_CONFLICT/,
+ 'Mapping mismatch must fail');
+assert.match(caseSql,/review_return_audit_candidate_v1/,
+ 'Case decision must use existing versioned review implementation');
+assert.match(caseSql,/revoke all on public\.otc_return_audit_case_order_links from public,anon,authenticated/,
+ 'No direct browser table access');
+assert.match(caseSql,/c\.k is not null/,
+ 'Historical vanished candidates must retain detected/not-detected distinction');
+
 const proposal=readFileSync('docs/security-proposals/returns-cohort-dashboard-rpcs-PROPOSAL.sql','utf8');
 assert.match(proposal,/auth\.uid\(\) is null/g,'SQL must check JWT identity');
 assert.ok(proposal.split("is_active and r.role in ('manager','admin')").length-1===2,
