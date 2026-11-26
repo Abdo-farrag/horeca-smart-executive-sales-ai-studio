@@ -12,6 +12,7 @@ import { OrderToCashSyncControl } from './components/OrderToCashSyncControl';
 import { ExecutiveDashboard } from './views/ExecutiveDashboard';
 import { SalesDashboard } from './views/SalesDashboard';
 import { OrderToCashReturnsControl } from './views/OrderToCashReturnsControl';
+import { ReturnsIntelligenceCenter } from './views/ReturnsIntelligenceCenter';
 import { CustomerDashboard } from './views/CustomerDashboard';
 import { CustomerActionCenter } from './views/CustomerActionCenter';
 import { SalesRepDailyActionCenter } from './views/SalesRepDailyActionCenter';
@@ -33,6 +34,7 @@ const MainLayout: React.FC = () => {
         return <SalesDashboard />;
       case 'order-to-cash':
         return <div className="space-y-6"><OrderToCashSyncControl /><OrderToCashReturnsControl /></div>;
+      case 'returns-intelligence': return import.meta.env.VITE_RETURNS_REVIEW_CENTER_ENABLED === 'true' ? <ReturnsIntelligenceCenter /> : <ExecutiveDashboard />;
       case 'customers':
         return <CustomerDashboard />;
       case 'customer-action-center':
