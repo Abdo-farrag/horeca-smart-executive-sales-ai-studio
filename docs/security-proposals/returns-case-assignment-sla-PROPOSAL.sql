@@ -35,11 +35,11 @@ create index otc_assignment_events_case_idx on public.otc_return_case_assignment
 create or replace function public.otc_reject_assignment_event_modification()
 returns trigger language plpgsql security invoker
 set search_path=pg_catalog,public
-as $
+as $$
 begin
  raise exception 'ASSIGNMENT_EVENTS_APPEND_ONLY' using errcode='P0001';
 end;
-$;
+$$;
 revoke all on function public.otc_reject_assignment_event_modification() from public,anon,authenticated;
 create trigger otc_assignment_events_no_update_delete
 before update or delete on public.otc_return_case_assignment_events
