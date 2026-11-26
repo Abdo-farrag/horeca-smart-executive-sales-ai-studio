@@ -67,7 +67,7 @@ begin
         coalesce(r.status,'new'),coalesce(r.version,0),
         r.reviewer_note,r.reviewed_at,
         c.k is not null
- from (select k from current_cases union select case_key from linked_history) keys
+ from (select c1.k from current_cases c1 union select h1.case_key from linked_history h1) keys
  left join current_cases c on c.k=keys.k
  left join linked_history h on h.case_key=keys.k
  left join public.otc_return_audit_reviews r on r.case_key=keys.k
