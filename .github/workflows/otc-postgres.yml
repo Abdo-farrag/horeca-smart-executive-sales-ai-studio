@@ -6,6 +6,12 @@ on:
     paths:
       - ".github/workflows/otc-postgres.yml"
       - "supabase/migrations/2026100707*.sql"
+      - "supabase/migrations/20261124010000_otc_return_audit_candidates.sql"
+      - "supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql"
+      - "supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql"
+      - "supabase/migrations/20261124013000_otc_return_audit_history.sql"
+      - "supabase/migrations/20261124014000_otc_uom_evidence_gate.sql"
+      - "supabase/migrations/20261125010000_otc_return_evidence_coverage.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -68,3 +74,31 @@ jobs:
           done
       - name: Assert geography, no fanout, returns, net values and permissions
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/10_assertions.sql
+      - name: Create ephemeral authorization fixture for audit RPC
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/15_audit_auth_fixture.sql
+      - name: Apply read-only P0 return audit migration
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124010000_otc_return_audit_candidates.sql
+      - name: Assert P0 return anomaly candidates on synthetic cases
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/20_return_audit_assertions.sql
+      - name: Apply manager-scoped audit RPC
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124011000_otc_return_audit_secure_rpc.sql
+      - name: Assert audit RPC authentication and company isolation
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/30_audit_rpc_assertions.sql
+      - name: Apply auditable review workflow
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124012000_otc_return_audit_review_workflow.sql
+      - name: Assert review statuses, history, scope and concurrency
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/40_review_workflow_assertions.sql
+      - name: Apply history read APIs
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124013000_otc_return_audit_history.sql
+      - name: Assert permanent review history after alert disappearance
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/50_history_assertions.sql
+      - name: Prepare isolated UoM fixture compatibility
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/60_uom_fixture_compat.sql
+      - name: Apply evidence-gated UoM schema and detector
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261124014000_otc_uom_evidence_gate.sql
+      - name: Assert unit compatibility, missing proof and stale evidence
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/70_uom_evidence_assertions.sql
+      - name: Apply evidence-coverage diagnostic view and RPC
+        run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261125010000_otc_return_evidence_coverage.sql
+      - name: Assert evidence coverage, staleness and security
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/80_evidence_coverage_assertions.sql

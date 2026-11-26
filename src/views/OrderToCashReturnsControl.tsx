@@ -1,3 +1,7 @@
+import { OtcMovementReconciliationPanel } from '../components/OtcMovementReconciliationPanel';
+import { ReturnEvidenceCoveragePanel } from '../components/ReturnEvidenceCoveragePanel';
+import { ReturnAuditHistoryPanel } from '../components/ReturnAuditHistoryPanel';
+import { ReturnAuditCandidatesPanel } from '../components/ReturnAuditCandidatesPanel';
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, FileCheck2, RefreshCw, RotateCcw } from 'lucide-react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -155,6 +159,10 @@ export const OrderToCashReturnsControl: React.FC = () => {
           </table>
         </div>
       </section>
+      <OtcMovementReconciliationPanel />
+      <ReturnEvidenceCoveragePanel />
+      <ReturnAuditCandidatesPanel />
+      <ReturnAuditHistoryPanel />
     </div>
   );
 };
