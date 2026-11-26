@@ -85,3 +85,13 @@ Do not automatically apply the SQL proposal based only on synthetic tests. A mis
 - **Stop condition triggered:** staging lacks a trustworthy, replayable baseline for several historical public tables. We cannot certify the audit migrations by patching one bootstrap table at a time.
 - Recommended fix: reconstruct a comprehensive **schema-only baseline** of the actual pre-July production database and place it before the earliest dependent migrations in a controlled test/replay workflow; do not retrospectively modify production migration history without careful reconciliation.
 - At this point no November audit schema or probe was deployed to staging, and no Production objects were changed.
+
+## Third replay attempt — controlled multi-object bootstrap, still blocked
+
+- Compared parent information_schema, pg_indexes and pg_get_viewdef against missing historical bootstrap objects; stored **one** schema-only baseline in docs/staging-only-legacy-bootstrap-20261126.sql.
+- Applied only to staging kwjgwdtcqejxgxwazrin, with zero copied data. Its five missing historic tables were manual_current_stock, raw_sales_lines, sku_master, sku_supplier_settings and purchase_recommendations; the v_sales_90d view was reconstructed from source catalog. RLS enabled and browser read grants revoked for bootstrap tables.
+- A subsequent rebase replay advanced from migration 20260701230629 through 20260719151428 — now **12 migrations recorded**, but status MIGRATIONS_FAILED again on the next historical migration.
+- The next 20260719205205_create_odoo17_history_pipeline references public.customer_product_history in its archive copy step; read-only checks proved this table is absent from staging.
+- This demonstrates that even a multi-object bootstrap is incomplete. **Do not patch another table and rebase** until the full schema-only pre-history baseline is formally reconstructed and independently reviewed. The heuristic audit docs/otc-legacy-migration-dependency-audit-readonly.sql records first references vs recorded CREATE TABLE statements; it does not prove all object DDL or foreign-key/view/function dependencies are covered.
+- No November audit migrations deployed; no authenticated JWT or source UoM checks performed; no Production writes.
+- The staging branch is billed hourly. If further schema reconstruction will not be done immediately, delete the blocked branch after obtaining the user's direction (deletion loses the isolated investigative state).
