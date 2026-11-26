@@ -3,6 +3,7 @@ import {AlertTriangle, ChevronDown, ChevronUp, RefreshCw, RotateCcw, Search, Shi
 import {useApp} from '../context/AppContext';
 import {callAnalyticsRpc} from '../analytics/client';
 import {OrderCaseReviewPanel} from '../components/OrderCaseReviewPanel';
+import {ReturnsAssignmentWorklistPanel} from '../components/ReturnsAssignmentWorklistPanel';
 
 type ReviewFlag = 'MISSING_ORIGINAL_DELIVERY' | 'UNVERIFIED_LINK' | 'POSSIBLE_DUPLICATE_RETURN' |
  'EXCESS_RETURN_UOM_UNVERIFIED' | 'CREDIT_NOTE_PENDING' | 'DATA_NOT_READY';
@@ -195,6 +196,8 @@ export const ReturnsIntelligenceCenter:React.FC=()=>{
    <span>مرتجعات غير قابلة للربط بأوردر محدد: {summary.unlinkedReturnMoves===null?'غير قابل للحساب للدفعة':number(summary.unlinkedReturnMoves)} — تظهر في قائمة مستقلة عند تفعيل مصدرها</span>
    <span>آخر Snapshot: {summary.snapshotThrough||'غير متاح'}</span>
   </div></>:null}
+
+  {summary?<ReturnsAssignmentWorklistPanel companyId={company?Number(company):null}/>:null}
 
   {orders?<section className="overflow-hidden rounded-xl border bg-white dark:border-slate-800 dark:bg-slate-900">
    <div className="flex flex-wrap justify-between gap-3 p-4"><h2 className="font-black">الأوردرات المرتبطة بالفترة</h2><span className="text-xs text-slate-500">{number(total)} أوردر مطابق للفلاتر</span></div>
