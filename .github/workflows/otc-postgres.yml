@@ -102,3 +102,5 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261125010000_otc_return_evidence_coverage.sql
       - name: Assert evidence coverage, staleness and security
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/80_evidence_coverage_assertions.sql
+      - name: Simulate proposed restrictive OTC company RLS in isolated rollback-only transaction
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/90_restrictive_company_policy_proposal_assertions.sql
