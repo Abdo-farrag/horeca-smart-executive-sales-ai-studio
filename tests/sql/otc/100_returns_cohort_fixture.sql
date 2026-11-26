@@ -32,3 +32,37 @@ returns setof bigint language sql stable as $$
   '00000000-0000-0000-0000-000000000002'::uuid
  )
 $$;
+
+-- The production-shaped canonical line reconciliation view is not part of the
+-- earlier synthetic October migration fixture. Recreate its relevant *contract*
+-- using independent line-level aggregates to ensure one row per sale line.
+create view public.otc_sale_line_reconciliation_canonical_v1 as
+with deliveries as (
+ select company_id,sale_order_line_id,sum(delivered_qty) gross_delivered_qty,
+        sum(delivered_value) gross_delivered_value
+ from public.otc_delivery_lines group by company_id,sale_order_line_id
+), returns as (
+ select company_id,sale_order_line_id,sum(returned_qty) returned_qty,
+        sum(estimated_operational_value) returned_value
+ from public.otc_return_lines group by company_id,sale_order_line_id
+), invoices as (
+ select company_id,sale_order_line_id,
+        coalesce(sum(price_subtotal) filter(where move_type='out_invoice'),0) gross_invoiced_value,
+        coalesce(sum(price_subtotal) filter(where move_type='out_refund'),0) credit_note_value
+ from public.otc_invoice_lines group by company_id,sale_order_line_id
+)
+select s.odoo_line_id sale_order_line_id,s.order_id,s.order_name,s.order_date,
+ s.company_id,s.company_name,s.customer_id,s.customer_name,
+ s.salesperson salesperson_name,s.product_id,s.product_name,
+ s.qty_sold ordered_qty,s.subtotal ordered_value,
+ coalesce(d.gross_delivered_qty,0) gross_delivered_qty,
+ coalesce(d.gross_delivered_value,0) gross_delivered_value,
+ coalesce(r.returned_qty,0) returned_qty,
+ coalesce(r.returned_value,0) returned_value,
+ coalesce(i.gross_invoiced_value,0) gross_invoiced_value,
+ coalesce(i.credit_note_value,0) credit_note_value,
+ 0::bigint inferred_return_events
+from public.product_sales_from_june1 s
+left join deliveries d on d.company_id=s.company_id and d.sale_order_line_id=s.odoo_line_id
+left join returns r on r.company_id=s.company_id and r.sale_order_line_id=s.odoo_line_id
+left join invoices i on i.company_id=s.company_id and i.sale_order_line_id=s.odoo_line_id;
