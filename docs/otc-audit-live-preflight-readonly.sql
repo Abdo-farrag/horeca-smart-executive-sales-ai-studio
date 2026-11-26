@@ -15,6 +15,25 @@ select current_database() as db_name,
        to_regprocedure('public.analytics_return_audit_history_v1(bigint,text,integer,integer)') is not null as review_history_rpc_exists,
        to_regprocedure('public.analytics_otc_return_evidence_coverage_v1(bigint)') is not null as coverage_rpc_exists;
 
+-- Security posture of existing source snapshots and new audit tables (if deployed).
+select n.nspname as schema_name,c.relname as object_name,
+       c.relkind,c.relrowsecurity as rls_enabled,
+       has_table_privilege('anon',c.oid,'SELECT') as anon_can_select,
+       has_table_privilege('authenticated',c.oid,'SELECT') as authenticated_can_select
+from pg_class c join pg_namespace n on n.oid=c.relnamespace
+where n.nspname='public'
+ and c.relname in (
+ 'otc_delivery_lines','otc_return_lines','otc_return_audit_reviews',
+ 'otc_return_audit_review_events','otc_move_uom_evidence',
+ 'otc_return_audit_candidates_v1','otc_return_evidence_status_v1')
+order by c.relname;
+
+-- Aggregate role inventory only: no staff IDs, tokens or private profile fields.
+select role,is_active,coalesce(company_id,-1) as company_id,
+       count(*) as staff_count
+from public.app_user_roles group by role,is_active,coalesce(company_id,-1)
+order by role,is_active,company_id;
+
 select 'delivery' as event_type,company_id,
        count(*) as stored_move_ids,
        min(delivery_date) as oldest_event,
