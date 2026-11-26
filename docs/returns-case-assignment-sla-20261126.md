@@ -30,3 +30,11 @@ This is an extension of the **merged** Returns Intelligence Center PR #19, in a 
 ## Release acceptance
 
 Verify UI on live authenticated manager role and authorized company, preserve nested order disclosure, enforce case ownership on every RPC, test changing priority and due date with simultaneous managers, test overdue in Cairo midnight and holiday/weekend policy, validate actual company ID membership for every user in Odoo/Supabase, and obtain Warehouse/Finance sign-off.
+
+## Final hardening review — immutable evidence and race-safe UI
+
+- The private `otc_return_case_assignment_events` log now has database BEFORE UPDATE/DELETE and BEFORE TRUNCATE guards, rejecting attempts to erase or rewrite assignment evidence. The owning database superuser can still disable triggers, so this is an operational append-only guard, **not** cryptographic immutability.
+- PostgreSQL ephemeral integration tests deliberately try UPDATE, DELETE and TRUNCATE as database owner and ensure all fail and the events survive.
+- The assignment component uses a request generation counter across order/company changes and refreshes. Older async staff or assignment reads cannot overwrite a more recent selection.
+- All three apps include static contract checks for those guards. The feature flag remains OFF until server RPCs, authentication and RLS are independently signed off.
+- The synthetic Postgres run at commit `5b974a6570` passed the assignment migration + security assertions. This is not Production release approval.
