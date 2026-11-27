@@ -1,7 +1,6 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
@@ -14,13 +13,11 @@ import {
 } from "./src/services/ai/aiContextSanitizer";
 import { AiContextMode, AiQueryIntent } from "./src/types/ai";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const configuredPort = Number(process.env.PORT ?? '3000');
+const PORT = Number.isInteger(configuredPort) && configuredPort > 0 && configuredPort <= 65535 ? configuredPort : 3000;
 
 app.use(express.json({ limit: "10mb" }));
 

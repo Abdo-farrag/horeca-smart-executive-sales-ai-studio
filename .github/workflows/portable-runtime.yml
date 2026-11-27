@@ -1,0 +1,98 @@
+name: Portable Dashboard Runtime Smoke
+
+on:
+  push:
+    paths:
+      - 'server.ts'
+      - 'apps/studio/server.ts'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/portable-runtime.yml'
+  pull_request:
+    paths:
+      - 'server.ts'
+      - 'apps/studio/server.ts'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/portable-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-runtime-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Compile app and server
+        run: npm run build
+        env:
+          VITE_RETURNS_REVIEW_CENTER_ENABLED: 'false'
+      - name: Boot production Express bundle and verify real endpoints
+        env:
+          NODE_ENV: production
+          PORT: '3123'
+        run: |
+          set -euo pipefail
+          node dist/server.cjs >/tmp/horeca-runtime.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; tail -60 /tmp/horeca-runtime.log' EXIT
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3123/api/health > /tmp/health.json; then
+              ready=1; break
+            fi
+            if ! kill -0 "$app_pid" 2>/dev/null; then
+              echo 'Server exited before health probe'
+              exit 1
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+          node -e "const d=require('/tmp/health.json'); if(d.status!=='ok')process.exit(1)"
+          curl --fail --silent http://127.0.0.1:3123/ > /tmp/horeca-index.html
+          grep -q '<div id="root">' /tmp/horeca-index.html
+          code="$(curl -s -o /tmp/auth.json -w '%{http_code}'             -X POST -H 'content-type: application/json'             -d '{}' http://127.0.0.1:3123/api/ai/chat)"
+          test "$code" = '401'
+          echo "Portable runtime OK: /, /api/health, unauthenticated /api/ai/chat=401"
+
+  container-build-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build container without credentials
+        run: docker build --tag horeca-smart-portable:smoke --build-arg VITE_RETURNS_REVIEW_CENTER_ENABLED=false .
+      - name: Verify image serves frontend and protected API
+        run: |
+          set -euo pipefail
+          docker run --rm --detach --name horeca-smart-smoke -p 3124:3000 horeca-smart-portable:smoke
+          trap 'docker logs horeca-smart-smoke || true; docker stop horeca-smart-smoke || true' EXIT
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3124/api/health >/tmp/docker-health.json; then
+              ready=1; break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+          curl --fail --silent http://127.0.0.1:3124/ | grep -q '<div id="root">'
+          code="$(curl -s -o /dev/null -w '%{http_code}'             -X POST -H 'content-type: application/json'             -d '{}' http://127.0.0.1:3124/api/ai/chat)"
+          test "$code" = '401'
+          echo "Portable Docker build and auth gate smoke passed"
