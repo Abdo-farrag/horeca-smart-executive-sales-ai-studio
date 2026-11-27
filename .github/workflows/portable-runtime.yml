@@ -69,3 +69,30 @@ jobs:
           code="$(curl -s -o /tmp/auth.json -w '%{http_code}'             -X POST -H 'content-type: application/json'             -d '{}' http://127.0.0.1:3123/api/ai/chat)"
           test "$code" = '401'
           echo "Portable runtime OK: /, /api/health, unauthenticated /api/ai/chat=401"
+
+  container-build-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build container without credentials
+        run: docker build --tag horeca-smart-portable:smoke --build-arg VITE_RETURNS_REVIEW_CENTER_ENABLED=false .
+      - name: Verify image serves frontend and protected API
+        run: |
+          set -euo pipefail
+          docker run --rm --detach --name horeca-smart-smoke -p 3124:3000 horeca-smart-portable:smoke
+          trap 'docker logs horeca-smart-smoke || true; docker stop horeca-smart-smoke || true' EXIT
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:3124/api/health >/tmp/docker-health.json; then
+              ready=1; break
+            fi
+            sleep 1
+          done
+          test "$ready" -eq 1
+          curl --fail --silent http://127.0.0.1:3124/ | grep -q '<div id="root">'
+          code="$(curl -s -o /dev/null -w '%{http_code}'             -X POST -H 'content-type: application/json'             -d '{}' http://127.0.0.1:3124/api/ai/chat)"
+          test "$code" = '401'
+          echo "Portable Docker build and auth gate smoke passed"
