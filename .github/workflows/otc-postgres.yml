@@ -14,6 +14,7 @@ on:
       - "supabase/migrations/20261125010000_otc_return_evidence_coverage.sql"
       - "docs/security-proposals/returns-cohort-dashboard-rpcs-PROPOSAL.sql"
       - "docs/security-proposals/returns-cohort-case-review-PROPOSAL.sql"
+      - "docs/security-proposals/returns-case-assignment-sla-PROPOSAL.sql"
       - "tests/sql/otc/**"
   pull_request:
     branches: ["**"]
@@ -22,6 +23,7 @@ on:
       - "supabase/migrations/2026100707*.sql"
       - "docs/security-proposals/returns-cohort-dashboard-rpcs-PROPOSAL.sql"
       - "docs/security-proposals/returns-cohort-case-review-PROPOSAL.sql"
+      - "docs/security-proposals/returns-case-assignment-sla-PROPOSAL.sql"
       - "tests/sql/otc/**"
   workflow_dispatch:
 
@@ -118,3 +120,9 @@ jobs:
         run: psql -X -v ON_ERROR_STOP=1 -f docs/security-proposals/returns-cohort-case-review-PROPOSAL.sql
       - name: Assert case decision versioning, lasting order link and RBAC
         run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/120_returns_order_review_assertions.sql
+      - name: Create ephemeral manager and assignee company membership
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/130_returns_assignment_fixture.sql
+      - name: Compile assignment worklist and manager-only mutation proposals
+        run: psql -X -v ON_ERROR_STOP=1 -f docs/security-proposals/returns-case-assignment-sla-PROPOSAL.sql
+      - name: Assert overdue SLAs, versioned assignments, immutable events and RBAC
+        run: psql -X -v ON_ERROR_STOP=1 -f tests/sql/otc/140_returns_assignment_assertions.sql
